@@ -1,0 +1,84 @@
+﻿# =============================================
+# 星络灵侍馆 — Spring Boot 全局配置
+# =============================================
+# 此文件为公共配置，环境差异化配置见 application-{profile}.yml
+# 启动时通过 --spring.profiles.active=dev 指定环境
+# =============================================
+
+server:
+  port: 8080
+  servlet:
+    context-path: /
+  # 优雅停机
+  shutdown: graceful
+
+spring:
+  application:
+    name: starlink-attendant
+  profiles:
+    active: dev
+
+  # Jackson 全局配置
+  jackson:
+    date-format: yyyy-MM-dd HH:mm:ss
+    time-zone: Asia/Shanghai
+    default-property-inclusion: non_null
+
+  # 文件上传限制
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 20MB
+
+  # 线程池
+  threads:
+    virtual:
+      enabled: false
+
+# MyBatis-Plus 配置
+mybatis-plus:
+  # Mapper XML 文件位置
+  mapper-locations: classpath*:mapper/**/*.xml
+  # 实体类包别名
+  type-aliases-package: com.starlink.**.entity
+  global-config:
+    db-config:
+      # 主键策略：数据库自增
+      id-type: auto
+      # 逻辑删除配置
+      logic-delete-field: deletedAt
+      logic-delete-value: "NOW()"
+      logic-not-delete-value: "NULL"
+      # 表名前缀（如有）
+      # table-prefix: ""
+  configuration:
+    # 下划线转驼峰（默认开启）
+    map-underscore-to-camel-case: true
+    # 日志输出（开发环境可开启，生产环境关闭）
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+
+# 文件存储配置
+file:
+  storage: local
+  local:
+    base-path: ./uploads
+    base-url: http://localhost:8080/uploads
+
+# Actuator 健康检查
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# 日志配置
+logging:
+  level:
+    root: INFO
+    com.starlink: DEBUG
+    com.baomidou.mybatisplus: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"

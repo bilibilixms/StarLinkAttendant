@@ -1,0 +1,33 @@
+# =============================================
+# 星络灵侍馆 — 开发环境配置
+# =============================================
+# 启动方式：--spring.profiles.active=dev
+# =============================================
+
+spring:
+  # MySQL 数据源
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/starlink_attendant?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    username: root
+    password: root123456
+    # HikariCP 连接池
+    hikari:
+      minimum-idle: 2               # 最少保持 2 个空闲连接（原 5，开发环境无需太多）
+      maximum-pool-size: 10          # 最大连接数（开发环境降低，避免触发 MySQL max_connections）
+      idle-timeout: 60000            # 超出 minimum-idle 的空闲连接 60s 后回收（原 300s）
+      max-lifetime: 600000           # 连接最大生命周期 10 分钟（原 30 分钟）
+      keepalive-time: 300000         # 每 5 分钟对空闲连接发探活，防止 MySQL 端超时断开
+      connection-timeout: 30000      # 30 秒获取连接超时
+      pool-name: StarLinkHikariCP
+
+# 开发环境开启 SQL 日志
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# 开发环境日志级别
+logging:
+  level:
+    com.starlink: DEBUG
+    org.springframework.web: INFO
