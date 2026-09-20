@@ -38,8 +38,7 @@ export const PAYMENT_METHOD_MAP: Record<number, string> = {
   1: '现金',
   2: '微信',
   3: '支付宝',
-  4: '银行卡',
-  5: '余额',
+  4: '余额',
 }
 
 /** 充值状态 */
