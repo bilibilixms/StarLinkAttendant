@@ -32,6 +32,7 @@ import com.starlink.common.exception.BusinessException;
 import com.starlink.common.result.ErrorCode;
 import com.starlink.common.util.PageResult;
 import com.starlink.common.utils.NumberGenerator;
+import com.starlink.member.service.BalanceService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -54,6 +55,7 @@ public class OrderServiceImpl implements OrderService {
     private final RefundRecordMapper refundRecordMapper;
     private final ProductInfoMapper productInfoMapper;
     private final CashierShiftMapper shiftMapper;
+    private final BalanceService balanceService;
 
     @Override
     public PageResult<OrderResponse> getOrderPage(OrderQueryRequest query) {
@@ -217,6 +219,15 @@ public class OrderServiceImpl implements OrderService {
         paymentRecordMapper.insert(payment);
         log.info("payment success: orderId={}, paymentNo={}", orderId, payment.getPaymentNo());
 
+        // 余额支付：扣减会员余额（订单必须已绑定会员）
+        if (request.getPaymentMethod() == CommonConstants.PAY_METHOD_BALANCE) {
+            if (order.getMemberId() == null) {
+                throw new BusinessException(ErrorCode.PARAM_ERROR.getCode(), "余额支付需先绑定会员");
+            }
+            balanceService.deductBalance(order.getMemberId(), order.getPayableAmount(),
+                    (byte) CommonConstants.BALANCE_BIZ_CONSUME, orderId, "收银消费");
+        }
+
         order.setStatus((byte) CommonConstants.ORDER_STATUS_PAID);
         order.setPaidAmount(order.getPayableAmount());
         order.setPaidAt(LocalDateTime.now());
@@ -281,6 +292,16 @@ public class OrderServiceImpl implements OrderService {
 
         refundRecordMapper.insert(refund);
         log.info("refund success: orderId={}, refundNo={}", orderId, refund.getRefundNo());
+
+        // 退回余额：退款金额加回会员账户
+        if (request.getRefundMethod() != null
+                && request.getRefundMethod() == CommonConstants.REFUND_METHOD_BALANCE) {
+            if (order.getMemberId() == null) {
+                throw new BusinessException(ErrorCode.PARAM_ERROR.getCode(), "退回余额需订单绑定会员");
+            }
+            balanceService.addBalance(order.getMemberId(), request.getRefundAmount(),
+                    (byte) CommonConstants.BALANCE_BIZ_REFUND, orderId, "订单退款");
+        }
 
         if (refundType == CommonConstants.REFUND_TYPE_FULL) {
             order.setStatus((byte) CommonConstants.ORDER_STATUS_REFUNDED);

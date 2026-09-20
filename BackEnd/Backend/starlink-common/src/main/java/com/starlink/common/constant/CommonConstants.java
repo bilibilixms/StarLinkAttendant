@@ -78,8 +78,9 @@ public final class CommonConstants {
     /** 退款类型：1-全额退款 2-部分退款 */
     public static final int REFUND_TYPE_FULL = 1;
     public static final int REFUND_TYPE_PARTIAL = 2;
-    /** 退款方式：1-现金退 2-退余额 */
+    /** 退款方式：复用支付方式编号 1-现金 2-微信 3-支付宝 4-退余额 */
     public static final int REFUND_METHOD_CASH = 1;
+    public static final int REFUND_METHOD_BALANCE = 4;
     /** 退款状态：0-待审核 1-已审核 2-已完成 3-已拒绝 */
     public static final int REFUND_STATUS_PENDING = 0;
     public static final int REFUND_STATUS_APPROVED = 1;
@@ -95,6 +96,12 @@ public final class CommonConstants {
     public static final int SETTLEMENT_STATUS_PENDING = 0;   // 待确认
     public static final int SETTLEMENT_STATUS_CONFIRMED = 1; // 已确认
     public static final int SETTLEMENT_STATUS_ARCHIVED = 2;  // 已归档
+
+    // ==================== 余额变动业务类型（member_balance_log.biz_type） ====================
+    public static final int BALANCE_BIZ_CONSUME = 1;   // 消费扣减
+    public static final int BALANCE_BIZ_REFUND = 2;    // 退款回充
+    public static final int BALANCE_BIZ_RECHARGE = 3;  // 充值
+    public static final int BALANCE_BIZ_ADJUST = 4;    // 手动调整
 
     // ==================== 库存操作类型 ====================
     public static final int INVENTORY_IN = 1;
