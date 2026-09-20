@@ -202,6 +202,10 @@ onMounted(() => { fetchProducts(); fetchCategories() })
               <span v-if="product.isVipOnly" class="vip-badge">VIP</span>
               <span v-if="getCartQuantity(product.id) > 0" class="cart-badge">{{ getCartQuantity(product.id) }}</span>
             </div>
+            <div class="product-thumb">
+              <img v-if="product.imageUrl" :src="product.imageUrl" :alt="product.productName" loading="lazy" />
+              <div v-else class="thumb-placeholder">{{ product.productName.slice(0, 1) }}</div>
+            </div>
             <div class="product-name" :title="product.productName">{{ product.productName }}</div>
             <div class="product-meta">
               <span class="product-price">¥{{ formatMoney(product.retailPrice) }}</span>
@@ -404,6 +408,12 @@ onMounted(() => { fetchProducts(); fetchCategories() })
 .product-card:hover { border-color: #93c5fd; box-shadow: 0 3px 12px rgba(59,130,246,0.12); transform: translateY(-2px); background: white; }
 .product-card:active { transform: translateY(0); }
 .product-card-header { display: flex; gap: 4px; margin-bottom: 8px; align-items: center; }
+.product-thumb { height: 64px; border-radius: 6px; overflow: hidden; margin-bottom: 8px; background: #f1f5f9; }
+.product-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.thumb-placeholder {
+  width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 600; color: #94a3b8; background: #f1f5f9;
+}
 .product-type-badge {
   font-size: 10px; color: white; padding: 1px 6px; border-radius: 4px; font-weight: 500;
 }
