@@ -4,10 +4,12 @@ import com.starlink.common.result.Result;
 import com.starlink.common.util.PageQuery;
 import com.starlink.common.util.PageResult;
 import com.starlink.member.dto.req.BlacklistRequest;
+import com.starlink.member.dto.req.MemberLoginRequest;
 import com.starlink.member.dto.req.MemberQueryRequest;
 import com.starlink.member.dto.req.MemberRegisterRequest;
 import com.starlink.member.dto.req.MemberUpdateRequest;
 import com.starlink.member.dto.resp.BlacklistResponse;
+import com.starlink.member.dto.resp.MemberLoginResponse;
 import com.starlink.member.dto.resp.MemberResponse;
 import com.starlink.member.service.MemberService;
 
@@ -50,6 +52,12 @@ public class MemberController {
     @PostMapping("/register")
     public Result<MemberResponse> registerMember(@Valid @RequestBody MemberRegisterRequest request) {
         return Result.ok(memberService.registerMember(request));
+    }
+
+    /** 会员端登录（小程序），匿名访问 */
+    @PostMapping("/login")
+    public Result<MemberLoginResponse> loginMember(@Valid @RequestBody MemberLoginRequest request) {
+        return Result.ok(memberService.loginMember(request));
     }
 
     @PutMapping("/{id}")

@@ -7,15 +7,18 @@ import com.starlink.common.result.ErrorCode;
 import com.starlink.common.util.PageQuery;
 import com.starlink.common.util.PageResult;
 import com.starlink.member.dto.req.BlacklistRequest;
+import com.starlink.member.dto.req.MemberLoginRequest;
 import com.starlink.member.dto.req.MemberQueryRequest;
 import com.starlink.member.dto.req.MemberRegisterRequest;
 import com.starlink.member.dto.req.MemberUpdateRequest;
 import com.starlink.member.dto.resp.BlacklistResponse;
+import com.starlink.member.dto.resp.MemberLoginResponse;
 import com.starlink.member.dto.resp.MemberResponse;
 import com.starlink.member.entity.Member;
 import com.starlink.member.entity.MemberLevel;
 import com.starlink.member.mapper.MemberLevelMapper;
 import com.starlink.member.mapper.MemberMapper;
+import com.starlink.system.security.JwtTokenUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -36,6 +39,43 @@ public class MemberService {
     private final MemberMapper memberMapper;
     private final MemberLevelMapper memberLevelMapper;
     private final PasswordEncoder passwordEncoder;
+    private final JwtTokenUtil jwtTokenUtil;
+
+    /**
+     * 会员端登录（小程序）：手机号 + 密码。
+     * <p>
+     * token 的 userId 使用负数（-memberId）+ 用户名加 "m:" 前缀，
+     * 避免被员工端 JwtAuthenticationFilter 误解析成员工身份。
+     */
+    public MemberLoginResponse loginMember(MemberLoginRequest request) {
+        Member member = memberMapper.selectByPhone(request.getPhone());
+        if (member == null || !passwordEncoder.matches(request.getPassword(), member.getPasswordHash())) {
+            throw new BusinessException(ErrorCode.LOGIN_FAILED);
+        }
+        if (member.getStatus() != null && member.getStatus() == 2) {
+            throw new BusinessException(ErrorCode.ACCOUNT_DISABLED.getCode(), "账号已注销");
+        }
+        if (member.getStatus() != null && member.getStatus() == 3) {
+            throw new BusinessException(ErrorCode.MEMBER_BLACKLISTED);
+        }
+
+        String token = jwtTokenUtil.generateAccessToken(-member.getId(), "m:" + member.getPhone());
+
+        member.setLastLoginTime(LocalDateTime.now());
+        memberMapper.updateById(member);
+
+        MemberLoginResponse resp = new MemberLoginResponse();
+        resp.setToken(token);
+        resp.setId(member.getId());
+        resp.setMemberNo(member.getMemberNo());
+        resp.setRealName(member.getRealName());
+        resp.setPhone(member.getPhone());
+        resp.setTotalPoints(member.getTotalPoints());
+        resp.setBalance(member.getBalance());
+        MemberLevel level = memberLevelMapper.selectById(member.getLevelId());
+        resp.setLevelName(level != null ? level.getLevelName() : "普通会员");
+        return resp;
+    }
 
     public PageResult<MemberResponse> listMembers(PageQuery pageQuery, MemberQueryRequest query) {
         Page<MemberResponse> page = new Page<>(pageQuery.getPage(), pageQuery.getSize());
