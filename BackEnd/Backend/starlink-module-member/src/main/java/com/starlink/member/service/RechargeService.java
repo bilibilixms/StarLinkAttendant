@@ -44,6 +44,11 @@ public class RechargeService {
             throw new BusinessException(ErrorCode.MEMBER_BLACKLISTED);
         }
 
+        // 充值不允许用会员余额支付（余额只能通过充值获得），防止凭空生钱
+        if (request.getPaymentMethod() == null || request.getPaymentMethod() < 1 || request.getPaymentMethod() > 3) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR.getCode(), "充值支付方式仅支持：1-现金 2-微信 3-支付宝");
+        }
+
         BigDecimal bonusAmount = calculateBonus(request.getMemberId(), request.getAmount());
         BigDecimal totalAmount = request.getAmount().add(bonusAmount);
 
@@ -123,7 +128,8 @@ public class RechargeService {
         if (method == null) return "";
         return switch (method) {
             case 1 -> "现金";
-            case 2 -> "会员余额";
+            case 2 -> "微信";
+            case 3 -> "支付宝";
             default -> "未知";
         };
     }

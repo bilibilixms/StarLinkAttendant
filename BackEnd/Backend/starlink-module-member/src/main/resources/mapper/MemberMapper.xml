@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.starlink.member.mapper.MemberMapper">
 
@@ -33,6 +33,36 @@
     <select id="selectByPhone" resultType="com.starlink.member.entity.Member">
         SELECT * FROM member WHERE phone = #{phone} AND deleted_at IS NULL
     </select>
+
+    <!-- 含已注销记录：用于注册时检测手机号是否被软删除记录占用 -->
+    <select id="selectByPhoneIncludeDeleted" resultType="com.starlink.member.entity.Member">
+        SELECT * FROM member WHERE phone = #{phone} ORDER BY deleted_at IS NULL DESC, id DESC LIMIT 1
+    </select>
+
+    <!--
+        复活已注销会员。必须用手写 SQL：实体 deletedAt 标注 @TableLogic，
+        MyBatis-Plus 内置 update 会自动追加 deleted_at IS NULL 条件，导致对已删除行的更新匹配 0 行。
+    -->
+    <update id="reviveDeletedMember">
+        UPDATE member SET
+            member_no = #{memberNo},
+            password_hash = #{passwordHash},
+            real_name = #{realName},
+            gender = #{gender},
+            id_card = #{idCard},
+            birthday = #{birthday},
+            level_id = #{levelId},
+            total_points = 0,
+            available_points = 0,
+            total_recharge = 0,
+            balance = 0,
+            total_consumption = 0,
+            register_source = 1,
+            status = 1,
+            deleted_at = NULL,
+            version = version + 1
+        WHERE id = #{id}
+    </update>
 
     <select id="selectByMemberNo" resultType="com.starlink.member.entity.Member">
         SELECT * FROM member WHERE member_no = #{memberNo} AND deleted_at IS NULL

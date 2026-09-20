@@ -65,8 +65,14 @@ public class MemberService {
 
     @Transactional
     public MemberResponse registerMember(MemberRegisterRequest request) {
-        if (memberMapper.selectByPhone(request.getPhone()) != null) {
+        Member existing = memberMapper.selectByPhoneIncludeDeleted(request.getPhone());
+        if (existing != null && existing.getDeletedAt() == null) {
             throw new BusinessException(ErrorCode.PARAM_ERROR.getCode(), "手机号已注册");
+        }
+
+        if (existing != null) {
+            // 手机号被已注销（软删除）记录占用：就地复活，避免撞 uk_phone 唯一索引
+            return reviveMember(existing, request);
         }
 
         Member member = new Member();
@@ -89,6 +95,36 @@ public class MemberService {
         memberMapper.insert(member);
         log.info("会员注册成功: {}", member.getMemberNo());
 
+        return getMemberById(member.getId());
+    }
+
+    /**
+     * 复活已注销会员：重置为新会员状态（新编号、余额/积分清零），保留主键以维持历史单据引用。
+     * 走手写 SQL（reviveDeletedMember）：实体 deletedAt 标注 @TableLogic，
+     * MyBatis-Plus 内置 update 会自动追加 deleted_at IS NULL 导致匹配不到已删除行。
+     */
+    private MemberResponse reviveMember(Member member, MemberRegisterRequest request) {
+        member.setMemberNo(generateMemberNo());
+        member.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        member.setRealName(request.getRealName());
+        member.setGender(request.getGender());
+        member.setIdCard(request.getIdCard());
+        member.setBirthday(request.getBirthday());
+        member.setLevelId(getDefaultLevelId());
+        member.setTotalPoints(0L);
+        member.setAvailablePoints(0L);
+        member.setTotalRecharge(BigDecimal.ZERO);
+        member.setBalance(BigDecimal.ZERO);
+        member.setTotalConsumption(BigDecimal.ZERO);
+        member.setRegisterSource((byte) 1);
+        member.setStatus((byte) 1);
+        member.setDeletedAt(null);
+
+        int rows = memberMapper.reviveDeletedMember(member);
+        if (rows == 0) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR.getCode(), "会员复活失败，请稍后重试");
+        }
+        log.info("已注销会员重新注册（复活）: id={}, phone={}", member.getId(), member.getPhone());
         return getMemberById(member.getId());
     }
 

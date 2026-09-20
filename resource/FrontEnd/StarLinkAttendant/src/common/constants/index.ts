@@ -41,6 +41,13 @@ export const PAYMENT_METHOD_MAP: Record<number, string> = {
   4: '余额',
 }
 
+/** 充值支付方式（充值不可用余额支付，避免凭空生钱） */
+export const RECHARGE_METHOD_MAP: Record<number, string> = {
+  1: '现金',
+  2: '微信',
+  3: '支付宝',
+}
+
 /** 充值状态 */
 export const RECHARGE_STATUS_MAP: Record<number, string> = {
   0: '待支付',

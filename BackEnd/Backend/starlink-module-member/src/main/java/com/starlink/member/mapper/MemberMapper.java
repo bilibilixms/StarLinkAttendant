@@ -24,6 +24,12 @@ public interface MemberMapper extends BaseMapper<Member> {
 
     Member selectByPhone(@Param("phone") String phone);
 
+    /** 含已注销（软删除）记录，用于注册时复活检测 */
+    Member selectByPhoneIncludeDeleted(@Param("phone") String phone);
+
+    /** 复活已注销会员（手写 SQL 绕过 @TableLogic 的自动条件），字段重置见 XML */
+    int reviveDeletedMember(Member member);
+
     Member selectByMemberNo(@Param("memberNo") String memberNo);
 
     MemberResponse selectMemberDetail(@Param("id") Long id);

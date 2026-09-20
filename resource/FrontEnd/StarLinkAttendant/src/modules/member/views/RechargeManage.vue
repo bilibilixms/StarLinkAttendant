@@ -3,7 +3,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { Search, RefreshRight } from '@element-plus/icons-vue'
 import { getMemberList, createRecharge, getRechargeRecords } from '../api'
-import { PAYMENT_METHOD_MAP, RECHARGE_STATUS_MAP } from '@/common/constants'
+import { PAYMENT_METHOD_MAP, RECHARGE_METHOD_MAP, RECHARGE_STATUS_MAP } from '@/common/constants'
 import { formatMoney } from '@/common/utils/money'
 import { formatDate } from '@/common/utils/date'
 import type { MemberItem, RechargeRecordItem, RechargeRequest } from '../types'
@@ -197,7 +197,7 @@ const handleRecordPageChange = (page: number) => {
         </el-form-item>
         <el-form-item label="支付方式" prop="paymentMethod">
           <el-radio-group v-model="rechargeForm.paymentMethod">
-            <el-radio v-for="(label, val) in PAYMENT_METHOD_MAP" :key="val" :value="Number(val)">{{ label }}</el-radio>
+            <el-radio v-for="(label, val) in RECHARGE_METHOD_MAP" :key="val" :value="Number(val)">{{ label }}</el-radio>
           </el-radio-group>
         </el-form-item>
       </el-form>

@@ -51,6 +51,7 @@ logs/
 # ==================== Environment ====================
 .env.local
 .env.*.local
+start-backend.bat
 
 # ==================== Uploads & Data ====================
 uploads/

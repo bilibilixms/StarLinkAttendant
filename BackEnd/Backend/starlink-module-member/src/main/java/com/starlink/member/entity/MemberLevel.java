@@ -30,5 +30,8 @@ public class MemberLevel extends BaseEntity {
 
     private Byte autoUpgrade;
 
+    /** 透支额度（元），余额最低可透支至该值的负数 */
+    private BigDecimal creditLimit;
+
     private String iconUrl;
 }

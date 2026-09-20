@@ -93,6 +93,7 @@ CREATE TABLE `member_level` (
     `recharge_bonus_rate` DECIMAL(5,2)     NOT NULL DEFAULT 0.00    COMMENT '充值赠送比例（%）',
     `points_multiple`     DECIMAL(5,2)     NOT NULL DEFAULT 1.00    COMMENT '积分获取倍数',
     `auto_upgrade`        TINYINT          NOT NULL DEFAULT 1       COMMENT '是否自动升级：0-否 1-是',
+    `credit_limit`        DECIMAL(10,2)    NOT NULL DEFAULT 0.00    COMMENT '透支额度（元），余额最低可透支至该值的负数',
     `icon_url`            VARCHAR(255)     DEFAULT NULL             COMMENT '等级图标URL',
     `created_at`          DATETIME(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3)            COMMENT '创建时间',
     `updated_at`          DATETIME(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
