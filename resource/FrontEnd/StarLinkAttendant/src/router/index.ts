@@ -111,6 +111,12 @@ const router = createRouter({
           meta: { title: '商品销售', icon: 'package' },
         },
         {
+          path: 'product/edit/:id',
+          name: 'product-edit',
+          component: () => import('@/modules/product/views/ProductEdit.vue'),
+          meta: { title: '商品编辑', hidden: true },
+        },
+        {
           path: 'report',
           name: 'report',
           component: () => import('@/modules/report/views/ReportDashboard.vue'),

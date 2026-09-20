@@ -4,33 +4,19 @@ import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import type { FormInstance } from 'element-plus'
-import { getProduct, createProduct, updateProduct, getCategoryTree, uploadFile } from '../api'
+import { getProduct, createProduct, updateProduct, uploadFile } from '../api'
 import { PRODUCT_TYPE_MAP } from '@/common/constants'
-import type { CategoryItem, ProductForm } from '../types'
+import type { ProductForm } from '../types'
 import type { UploadProps, UploadFile as ElUploadFile } from 'element-plus'
 
 const router = useRouter()
 const route = useRoute()
 const formRef = ref<FormInstance>()
 const loading = ref(false)
-const categoryOptions = ref<CategoryItem[]>([])
 const imageUploading = ref(false)
 
 const isEdit = computed(() => route.params.id !== '0')
 const pageTitle = computed(() => isEdit.value ? '编辑商品' : '新增商品')
-
-const flattenCategories = (cats: CategoryItem[], prefix = ''): { id: number; name: string }[] => {
-  const result: { id: number; name: string }[] = []
-  for (const c of cats) {
-    result.push({ id: c.id, name: prefix + c.categoryName })
-    if (c.children?.length) {
-      result.push(...flattenCategories(c.children, prefix + c.categoryName + ' / '))
-    }
-  }
-  return result
-}
-
-const flatCategories = ref<{ id: number; name: string }[]>([])
 
 const form = reactive<ProductForm>({
   categoryId: null,
@@ -53,14 +39,6 @@ const rules = {
   unit: [{ required: true, message: '请输入单位', trigger: 'blur' }],
   costPrice: [{ required: true, message: '请输入成本价', trigger: 'blur' }],
   retailPrice: [{ required: true, message: '请输入零售价', trigger: 'blur' }],
-}
-
-const fetchCategories = async () => {
-  try {
-    const res = await getCategoryTree()
-    categoryOptions.value = res.data || []
-    flatCategories.value = flattenCategories(res.data || [])
-  } catch { categoryOptions.value = [] }
 }
 
 const fetchProduct = async () => {
@@ -129,12 +107,12 @@ const handleSubmit = async () => {
       await createProduct(form)
       ElMessage.success('商品创建成功')
     }
-    router.push('/product/list')
+    router.push('/product')
   } catch { /* handled */ }
   finally { loading.value = false }
 }
 
-onMounted(() => { fetchCategories(); fetchProduct() })
+onMounted(() => { fetchProduct() })
 </script>
 
 <template>
@@ -150,11 +128,6 @@ onMounted(() => { fetchCategories(); fetchProduct() })
         </el-form-item>
         <el-form-item label="商品名称" prop="productName">
           <el-input v-model="form.productName" placeholder="请输入商品名称" />
-        </el-form-item>
-        <el-form-item label="商品分类" prop="categoryId">
-          <el-select v-model="form.categoryId" placeholder="请选择分类" clearable style="width: 100%">
-            <el-option v-for="c in flatCategories" :key="c.id" :label="c.name" :value="c.id" />
-          </el-select>
         </el-form-item>
         <el-form-item label="商品类型" prop="productType">
           <el-select v-model="form.productType" style="width: 100%">
@@ -205,7 +178,7 @@ onMounted(() => { fetchCategories(); fetchProduct() })
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleSubmit">保存</el-button>
-          <el-button @click="router.push('/product/list')">取消</el-button>
+          <el-button @click="router.push('/product')">取消</el-button>
         </el-form-item>
       </el-form>
     </div>

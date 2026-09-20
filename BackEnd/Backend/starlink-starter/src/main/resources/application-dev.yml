@@ -9,8 +9,8 @@ spring:
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
     url: jdbc:mysql://localhost:3306/starlink_attendant?useUnicode=true&characterEncoding=UTF-8&useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
-    username: root
-    password: root123456
+    username: ${MYSQL_USERNAME:root}
+    password: ${MYSQL_PASSWORD:}
     # HikariCP 连接池
     hikari:
       minimum-idle: 2               # 最少保持 2 个空闲连接（原 5，开发环境无需太多）

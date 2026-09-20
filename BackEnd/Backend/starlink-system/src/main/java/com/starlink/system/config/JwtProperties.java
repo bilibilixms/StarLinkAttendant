@@ -9,7 +9,8 @@ import org.springframework.stereotype.Component;
 @ConfigurationProperties(prefix = "jwt")
 public class JwtProperties {
 
-    private String secret = "starlink-attendant-management-system-jwt-secret-key";
+    /** 签名密钥，通过环境变量 JWT_SECRET 注入，禁止明文写入仓库或代码 */
+    private String secret;
 
     private Long accessTokenExpire = 7200L;
 

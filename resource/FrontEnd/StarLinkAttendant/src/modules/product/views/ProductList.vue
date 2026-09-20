@@ -3,35 +3,21 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Plus, Edit, Delete, RefreshRight } from '@element-plus/icons-vue'
-import { getProductList, deleteProduct, updateProductStatus, getCategoryTree } from '../api'
+import { getProductList, deleteProduct, updateProductStatus } from '../api'
 import { PRODUCT_TYPE_MAP, PRODUCT_STATUS_MAP } from '@/common/constants'
 import { formatMoney } from '@/common/utils/money'
 import { formatDate } from '@/common/utils/date'
-import type { ProductItem, CategoryItem } from '../types'
+import type { ProductItem } from '../types'
 
 const router = useRouter()
 const loading = ref(false)
 const tableData = ref<ProductItem[]>([])
 const total = ref(0)
-const categoryOptions = ref<CategoryItem[]>([])
 
 const queryParams = reactive({
-  page: 1, size: 10, productName: '', categoryId: null as number | null,
+  page: 1, size: 10, productName: '',
   productType: null as number | null, isActive: null as number | null,
 })
-
-const flattenCategories = (cats: CategoryItem[], prefix = ''): { id: number; name: string }[] => {
-  const result: { id: number; name: string }[] = []
-  for (const c of cats) {
-    result.push({ id: c.id, name: prefix + c.categoryName })
-    if (c.children?.length) {
-      result.push(...flattenCategories(c.children, prefix + c.categoryName + ' / '))
-    }
-  }
-  return result
-}
-
-const flatCategories = ref<{ id: number; name: string }[]>([])
 
 const fetchData = async () => {
   loading.value = true
@@ -43,17 +29,9 @@ const fetchData = async () => {
   finally { loading.value = false }
 }
 
-const fetchCategories = async () => {
-  try {
-    const res = await getCategoryTree()
-    categoryOptions.value = res.data || []
-    flatCategories.value = flattenCategories(res.data || [])
-  } catch { categoryOptions.value = [] }
-}
-
 const handleSearch = () => { queryParams.page = 1; fetchData() }
 const handleReset = () => {
-  queryParams.productName = ''; queryParams.categoryId = null
+  queryParams.productName = ''
   queryParams.productType = null; queryParams.isActive = null
   handleSearch()
 }
@@ -84,7 +62,7 @@ const handleDelete = async (row: ProductItem) => {
   } catch { /* cancelled */ }
 }
 
-onMounted(() => { fetchData(); fetchCategories() })
+onMounted(() => { fetchData() })
 </script>
 
 <template>
@@ -98,11 +76,6 @@ onMounted(() => { fetchData(); fetchCategories() })
       <el-form :inline="true" @submit.prevent>
         <el-form-item label="商品名称">
           <el-input v-model="queryParams.productName" placeholder="请输入商品名称" clearable />
-        </el-form-item>
-        <el-form-item label="分类">
-          <el-select v-model="queryParams.categoryId" placeholder="全部" clearable style="width: 140px">
-            <el-option v-for="c in flatCategories" :key="c.id" :label="c.name" :value="c.id" />
-          </el-select>
         </el-form-item>
         <el-form-item label="类型">
           <el-select v-model="queryParams.productType" placeholder="全部" clearable style="width: 110px">
@@ -144,9 +117,6 @@ onMounted(() => { fetchData(); fetchCategories() })
           </template>
         </el-table-column>
         <el-table-column prop="productName" label="商品名称" min-width="150" />
-        <el-table-column prop="categoryName" label="分类" width="100">
-          <template #default="{ row }">{{ row.categoryName || '-' }}</template>
-        </el-table-column>
         <el-table-column label="类型" width="90">
           <template #default="{ row }">{{ PRODUCT_TYPE_MAP[row.productType] || '-' }}</template>
         </el-table-column>
