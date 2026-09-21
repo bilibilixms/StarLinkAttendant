@@ -26,9 +26,11 @@ public class CorsConfig {
 
         // 允许的源
         config.setAllowedOriginPatterns(List.of(
-                "http://localhost:5173",  // Vite 开发服务器
+                "http://localhost:5173",  // Vite 开发服务器（Web 管理后台）
                 "http://localhost:3000",  // 备用前端端口
-                "http://127.0.0.1:5173"
+                "http://127.0.0.1:5173",
+                "http://localhost:5174",  // 小程序 Vite 开发服务器
+                "http://127.0.0.1:5174"
         ));
 
         // 允许的方法

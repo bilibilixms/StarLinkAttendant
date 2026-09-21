@@ -1,0 +1,126 @@
+/**
+ * uni-app 会把本文件自动注入到每一个 <style lang="scss"> 中，
+ * 因此这里只放「变量 / mixin / 函数」，不要写任何会产生 CSS 输出的规则。
+ *
+ * 设计基准：参考 5 张微信小程序截图，品牌主色为蓝紫色（#5B5BD6）。
+ * 尺寸一律使用 rpx（750rpx = 屏幕宽度），保证 iPhone / Android 等比缩放。
+ */
+
+/* ==================== 品牌色 ==================== */
+$brand-primary: #5b5bd6; // 主按钮 / Tab 激活态
+$brand-primary-light: #7c7cf0;
+$brand-primary-dark: #4a4ac4;
+$brand-primary-soft: #ececff; // 浅色底
+$brand-gradient: linear-gradient(135deg, #8e7bff 0%, #5b5bd6 100%);
+$brand-gradient-soft: linear-gradient(135deg, #a78bfa 0%, #6f6bec 100%);
+
+/* ==================== 背景 / 卡片 ==================== */
+// 页面背景对齐参考截图实测值：卡片间隙处采样为 rgb(248,248,250)
+// 注意：这几个变量必须定义在「页面背景渐变」之前，下面的渐变会引用它们。
+$page-bg: #f7f7fa;
+$card-bg: #ffffff;
+$card-bg-soft: #f3f5fa; // 服务页功能卡片底
+$card-bg-softer: #f8f9fc;
+$divider: #eef0f5;
+
+/* ==================== 页面背景渐变 ==================== */
+// 首页顶部：粉紫渐变（截图 1）
+$grad-home-header: linear-gradient(180deg, #efd4f8 0%, #e5dbfa 42%, $page-bg 100%);
+// 服务页顶部：淡蓝紫（截图 2）
+$grad-service-header: linear-gradient(180deg, #dbe3fb 0%, #e9ecfb 46%, $page-bg 100%);
+// 游戏页顶部：深色游戏氛围（截图 3）
+$grad-game-header: linear-gradient(160deg, #2b3a5c 0%, #1d2540 55%, #131a2e 100%);
+// Banner：紫色活动渐变
+$grad-banner: linear-gradient(120deg, #b06bf5 0%, #8a5cf0 45%, #6c4be0 100%);
+
+/* ==================== 文本 ==================== */
+$text-primary: #1a1a1a;
+$text-regular: #4a4a52;
+$text-secondary: #8a8a99;
+$text-placeholder: #b0b0be;
+$text-on-brand: #ffffff;
+
+/* ==================== 功能色 ==================== */
+$gold: #ffd466;
+$gold-deep: #f0b429;
+$danger: #ff5b5b;
+$success: #22c55e;
+$warning: #ff9f2e;
+$info: #3b9dff;
+
+/* ==================== 会员条（截图 1 深色条） ==================== */
+$member-bar-bg: linear-gradient(90deg, #35353f 0%, #2a2a33 100%);
+
+/* ==================== 圆角 ==================== */
+$radius-xs: 8rpx;
+$radius-sm: 12rpx;
+$radius-md: 16rpx;
+$radius-lg: 24rpx;
+$radius-xl: 32rpx;
+$radius-pill: 999rpx;
+
+/* ==================== 间距 ==================== */
+$gap-xs: 8rpx;
+$gap-sm: 12rpx;
+$gap-md: 20rpx;
+$gap-lg: 28rpx;
+$gap-xl: 36rpx;
+$gap-page: 24rpx; // 页面左右安全边距
+
+/* ==================== 字号 ==================== */
+$fs-xs: 20rpx;
+$fs-sm: 22rpx;
+$fs-base: 24rpx;
+$fs-md: 26rpx;
+$fs-lg: 30rpx;
+$fs-xl: 34rpx;
+$fs-xxl: 40rpx;
+$fs-title: 46rpx;
+
+/* ==================== 固定尺寸 ==================== */
+$tabbar-height: 100rpx; // 不含安全区（参考图实测 ≈97rpx）
+$navbar-height: 88rpx; // 不含状态栏
+
+/* ==================== 底部导航配色 ==================== */
+// 参考图里未激活图标是偏深的灰，不是浅灰
+$tab-inactive: #5a5a6b;
+$tab-active: #5b5bd6;
+
+/* ==================== mixin ==================== */
+
+/// 单行省略
+@mixin ellipsis {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/// 多行省略（微信小程序需 -webkit-box）
+@mixin ellipsis-multi($lines: 2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: $lines;
+  -webkit-box-orient: vertical;
+  word-break: break-all;
+}
+
+/// 统一白卡片
+@mixin card($radius: $radius-lg) {
+  background: $card-bg;
+  border-radius: $radius;
+}
+
+/// flex 快捷
+@mixin flex($justify: flex-start, $align: center, $dir: row) {
+  display: flex;
+  flex-direction: $dir;
+  justify-content: $justify;
+  align-items: $align;
+}
+
+/// 底部安全区内边距（iPhone 刘海屏 / 微信小程序）
+@mixin safe-area-bottom($extra: 0rpx) {
+  padding-bottom: calc(#{$extra} + constant(safe-area-inset-bottom));
+  padding-bottom: calc(#{$extra} + env(safe-area-inset-bottom));
+}

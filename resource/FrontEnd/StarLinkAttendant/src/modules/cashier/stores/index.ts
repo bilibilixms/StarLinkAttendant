@@ -58,6 +58,6 @@ export const useCartStore = defineStore('cashier-cart', () => {
   return {
     items, memberId, memberName, remark,
     totalCount, totalAmount,
-    addItem, removeItem, updateQuantity, clearCart, setMember, recalculatePrices,
+    addItem, removeItem, updateQuantity, clearCart, setMember,
   }
 })
