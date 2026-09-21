@@ -32,7 +32,7 @@ class TestSQL {
                 "数据源应为 HikariDataSource 类型，实际: " + dataSource.getClass().getName());
 
         HikariDataSource hikari = (HikariDataSource) dataSource;
-        assertEquals(20, hikari.getMaximumPoolSize(), "最大连接池大小应为 20");
+        assertEquals(10, hikari.getMaximumPoolSize(), "最大连接池大小应为 10");
 
         try (Connection conn = hikari.getConnection()) {
             assertNotNull(conn, "应能获取到非 null 的 Connection");

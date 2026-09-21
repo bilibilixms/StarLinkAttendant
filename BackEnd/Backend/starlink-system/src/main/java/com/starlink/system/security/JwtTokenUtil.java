@@ -74,6 +74,17 @@ public class JwtTokenUtil {
         return claims.get("username", String.class);
     }
 
+    /** 取 token 剩余有效期秒数（已过期返回 0） */
+    public long getRemainingSeconds(String token) {
+        try {
+            Claims claims = parseToken(token);
+            long remainingMs = claims.getExpiration().getTime() - System.currentTimeMillis();
+            return remainingMs > 0 ? remainingMs / 1000 : 0;
+        } catch (Exception e) {
+            return 0;
+        }
+    }
+
     public boolean isTokenExpired(String token) {
         try {
             Claims claims = parseToken(token);
