@@ -5,7 +5,7 @@
 > **后端框架：** Spring Boot 3.4.13 + MyBatis-Plus 3.5.5
 > **前端框架：** Vue 3.5 + TypeScript + Axios
 > **对应文档：** TheModules.md（后端）、TheFrontendModules.md（前端）
-> **更新日期：** 2026-07-13
+> **更新日期：** 2026-09
 
 ---
 

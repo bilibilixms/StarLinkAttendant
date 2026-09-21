@@ -4,7 +4,7 @@
 > **应用名称：** StarLinkAttendant（星络灵侍馆 · 管理端）
 > **技术栈：** Vue 3.5 + TypeScript + Vite 8 + Element Plus + Pinia + Vue Router
 > **对应后端：** TheModules.md（v1.0）
-> **更新日期：** 2026-07-13
+> **更新日期：** 2026-09
 
 ---
 

@@ -39,31 +39,47 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (token != null) {
             try {
                 Long userId = jwtTokenUtil.getUserIdFromToken(token);
-                Employee employee = employeeMapper.selectById(userId);
-                
-                if (employee != null && employee.getIsActive() == 1) {
-                    var roles = roleMapper.selectByEmployeeId(userId);
+                String username = jwtTokenUtil.getUsernameFromToken(token);
 
-                    List<String> roleNames = roles.stream()
-                            .map(r -> "ROLE_" + r.getRoleCode())
-                            .collect(Collectors.toList());
-
-                    List<Long> roleIds = roles.stream()
-                            .map(r -> r.getId())
-                            .collect(Collectors.toList());
-
-                    List<String> permissions = List.of();
-                    if (!roleIds.isEmpty()) {
-                        permissions = permissionMapper.selectByRoleIds(roleIds).stream()
-                                .map(p -> p.getPermCode())
-                                .collect(Collectors.toList());
-                    }
-
-                    SecurityUser securityUser = new SecurityUser(employee, permissions, roleNames);
+                if (userId < 0) {
+                    // 会员身份：token 里 userId = -memberId，username = "m:phone"
+                    Long memberId = -userId;
+                    String phone = username != null && username.startsWith("m:")
+                            ? username.substring(2)
+                            : (username != null ? username : "");
+                    // 不查数据库（避免跨模块依赖 member mapper），状态默认正常
+                    SecurityUser securityUser = new SecurityUser(memberId, phone, (byte) 1);
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             securityUser, null, securityUser.getAuthorities());
-                    
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+                } else {
+                    // 员工身份：从数据库加载角色与权限
+                    Employee employee = employeeMapper.selectById(userId);
+
+                    if (employee != null && employee.getIsActive() == 1) {
+                        var roles = roleMapper.selectByEmployeeId(userId);
+
+                        List<String> roleNames = roles.stream()
+                                .map(r -> "ROLE_" + r.getRoleCode())
+                                .collect(Collectors.toList());
+
+                        List<Long> roleIds = roles.stream()
+                                .map(r -> r.getId())
+                                .collect(Collectors.toList());
+
+                        List<String> permissions = List.of();
+                        if (!roleIds.isEmpty()) {
+                            permissions = permissionMapper.selectByRoleIds(roleIds).stream()
+                                    .map(p -> p.getPermCode())
+                                    .collect(Collectors.toList());
+                        }
+
+                        SecurityUser securityUser = new SecurityUser(employee, permissions, roleNames);
+                        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                                securityUser, null, securityUser.getAuthorities());
+
+                        SecurityContextHolder.getContext().setAuthentication(authToken);
+                    }
                 }
             } catch (Exception e) {
                 log.warn("JWT认证失败: {}", e.getMessage());
