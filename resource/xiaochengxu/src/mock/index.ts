@@ -6,7 +6,7 @@
  * 所以 request.ts 的拆包 / 401 / 错误提示逻辑走的是同一条路径。
  */
 import type { ApiResponse } from '@/types/api'
-import { db } from './db'
+import { isLoggedIn } from './db'
 import { routes, type MockContext, type MockRoute } from './routes'
 
 interface MockRequestOptions {
@@ -103,7 +103,7 @@ export function mockRequest<T>(options: MockRequestOptions): Promise<ApiResponse
       })
 
       // 鉴权：未登录访问需要登录的接口，返回 401（与真实后端 SecurityConfig 行为一致）
-      if (matched.route.auth && !db().loggedIn) {
+      if (matched.route.auth && !isLoggedIn()) {
         resolve({
           code: 401,
           message: '请先登录后再操作',
@@ -113,7 +113,8 @@ export function mockRequest<T>(options: MockRequestOptions): Promise<ApiResponse
         return
       }
 
-      const ctx: MockContext = { params, query, body, authed: options.auth }
+      // authed 表示「本次请求确实带了 token」，与 MockContext 上的注释一致
+      const ctx: MockContext = { params, query, body, authed: !!options.token }
 
       try {
         const data = matched.route.handler(ctx)

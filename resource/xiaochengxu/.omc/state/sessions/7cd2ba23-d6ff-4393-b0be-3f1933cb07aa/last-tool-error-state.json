@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd /tmp && \\\"/c/Program Files (x86)/Microsoft/Edge/Application/msedge.exe\\\" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=1 --window-size=390,844 --virtual-tim...",
-  "error": "Exit code 2\n[20944:33600:0919/130833.605:ERROR:chrome\\browser\\importer\\edge_china_browsers\\edge_qqbrowser_importer_utils_win.cc:165] QQBrowser user data path not found.\r\n[20944:28904:0919/130833.986:ERROR:components\\headless\\command_handler\\headless_command_handler.cc:266] Failed to write file D:/shixi_project/wangbaguanlixitong/xiaochengxu/.shots/home.png: 系统找不到指定的路径。 (0x3)",
-  "timestamp": "2026-09-19T05:08:35.113Z",
-  "retry_count": 1
-}

@@ -71,8 +71,8 @@ async function searchMember() {
     const { getMemberList } = await import('@/modules/member/api')
     const res = await getMemberList({ page: 1, size: 1, phone: form.memberPhone })
     const records = res.data.records || []
-    if (records.length > 0) {
-      const m = records[0]
+    const m = records[0]
+    if (m) {
       memberInfo.value = { id: m.id, realName: m.realName, phone: m.phone, balance: m.balance, levelName: m.levelName, status: m.status }
       form.memberId = m.id
       memberFound.value = true

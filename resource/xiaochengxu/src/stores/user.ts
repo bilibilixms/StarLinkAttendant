@@ -79,6 +79,65 @@ export const useUserStore = defineStore('user', () => {
     }
   }
 
+  /**
+   * 从后端拉取「当前登录者」的最新会员信息并同步到 Pinia + storage。
+   *
+   * 用途：后台管理员给该会员充值后，会员端无需退出登录即可看到最新余额。
+   * 行为约束：
+   * - 只做<b>合并</b>更新：后端未返回的字段（头像/昵称/生日等）保持登录时的值不变；
+   * - 值未变化时不写回，避免无意义的响应式更新与 UI 闪烁；
+   * - 出错不抛出（轮询调用方不该被异常打断）；401 由 request 层统一清理登录态，
+   *   清理后 isLogin 变 false，轮询会自行停止，不会形成死循环。
+   *
+   * @returns 是否发生了实际变化
+   */
+  async function refreshMember(): Promise<boolean> {
+    if (!token.value || !member.value) return false
+    try {
+      const profile = await authApi.getMemberProfile()
+      // 员工令牌或后端未返回会员段时无需刷新
+      if (!profile) return false
+
+      const current = member.value
+      const next: Member = {
+        ...current,
+        // 仅用后端权威字段覆盖；其余保持登录时的本地值
+        id: profile.id || current.id,
+        memberNo: profile.memberNo || current.memberNo,
+        realName: profile.realName || current.realName,
+        phone: profile.phone || current.phone,
+        levelId: profile.levelId || current.levelId,
+        levelName: profile.levelName || current.levelName,
+        balance: profile.balance,
+        availablePoints: profile.availablePoints,
+        totalPoints: profile.totalPoints,
+        totalRecharge: profile.totalRecharge,
+        totalConsumption: profile.totalConsumption,
+        status: profile.status,
+      }
+
+      const changed =
+        next.balance !== current.balance ||
+        next.availablePoints !== current.availablePoints ||
+        next.totalPoints !== current.totalPoints ||
+        next.totalRecharge !== current.totalRecharge ||
+        next.totalConsumption !== current.totalConsumption ||
+        next.levelId !== current.levelId ||
+        next.levelName !== current.levelName ||
+        next.status !== current.status
+      if (!changed) return false
+
+      member.value = next
+      setCachedMember(next) // Pinia 与 storage 一起更新，避免下次进入页面又显示旧值
+      console.log('[user] 会员信息已刷新: balance=', next.balance, 'points=', next.availablePoints)
+      return true
+    } catch (e) {
+      // 静默失败：不打断页面，也不重试（下一次轮询/onShow 会再试）
+      console.warn('[user] 刷新会员信息失败', e)
+      return false
+    }
+  }
+
   /** 只清本地登录态，不动服务端（JWT 无状态） */
   function clearLocal(): void {
     token.value = ''
@@ -109,6 +168,7 @@ export const useUserStore = defineStore('user', () => {
     loginByPhonePassword,
     patchBalance,
     patchPoints,
+    refreshMember,
     clearLocal,
     logout,
   }

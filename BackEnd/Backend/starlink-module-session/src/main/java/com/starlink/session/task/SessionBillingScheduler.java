@@ -17,6 +17,7 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -45,6 +46,11 @@ public class SessionBillingScheduler {
     private final SessionTimingMapper sessionTimingMapper;
     private final ComputerMapper computerMapper;
     private final BillingRecordMapper billingRecordMapper;
+    /**
+     * 时间来源：生产为系统时钟；测试/调试注入可推进的仿真时钟后，
+     * 一次 tick 即可按「快进后的时间」结算，从而几秒内验证数小时的计费过程。
+     */
+    private final Clock clock;
 
     /**
      * 每分钟执行一次会话计费更新。
@@ -82,7 +88,7 @@ public class SessionBillingScheduler {
      * @return true 表示有更新发生
      */
     private boolean updateSessionBillingAmounts(Session session) {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         boolean updated = false;
 
         // 1. 查询该会话所有计时段（按开始时间升序）

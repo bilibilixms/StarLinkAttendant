@@ -8,6 +8,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -25,6 +26,8 @@ import java.util.List;
 public class ReservationTimeoutScheduler {
 
     private final ReservationMapper reservationMapper;
+    /** 时间来源：生产为系统时钟，测试/调试可注入可推进的仿真时钟 */
+    private final Clock clock;
 
     /** 超时容忍窗口（分钟） */
     private static final int TIMEOUT_MINUTES = 15;
@@ -34,7 +37,7 @@ public class ReservationTimeoutScheduler {
      */
     @Scheduled(fixedRate = 60_000)
     public void checkReservationTimeout() {
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         // 超时阈值：预约开始时间 + 15 分钟
         LocalDateTime threshold = now.minusMinutes(TIMEOUT_MINUTES);
 

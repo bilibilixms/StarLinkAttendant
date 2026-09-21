@@ -67,3 +67,6 @@ desktop.ini
 
 # ==================== Package Lock (optional, uncomment to ignore) ====================
 # package-lock.json
+
+# ==================== Local AI / OMC ====================
+.omc/

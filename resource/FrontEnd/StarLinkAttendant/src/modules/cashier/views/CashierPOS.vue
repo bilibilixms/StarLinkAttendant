@@ -133,8 +133,8 @@ const confirmMemberSearch = async () => {
   try {
     const res = await import('@/modules/member/api').then(m => m.getMemberList({ page: 1, size: 1, phone: memberPhone.value }))
     const members = res.data.records || []
-    if (members.length > 0) {
-      const member = members[0]
+    const member = members[0]
+    if (member) {
       cart.setMember(member.id, member.realName || member.phone)
       ElMessage.success(`已绑定会员: ${member.realName || member.phone}`)
       memberSearchVisible.value = false

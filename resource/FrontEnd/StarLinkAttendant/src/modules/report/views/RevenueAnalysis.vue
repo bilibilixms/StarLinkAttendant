@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useReportStore } from '../stores'
+import type { DailyRevenue, MonthlyRevenue } from '../types'
 
 const fmtDate = (d: Date) => d.toISOString().slice(0, 10)
 
@@ -43,6 +44,12 @@ const formatMoney = (val: number) => {
   return '¥' + val.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
 }
 
+/** 趋势图数据项：日报按 date 标识、月报按 month 标识 */
+type TrendItem = DailyRevenue | MonthlyRevenue
+
+/** 取趋势项的稳定 key（用 in 做联合类型收窄，避免访问不存在的属性） */
+const itemKey = (item: TrendItem): string => ('date' in item ? item.date : item.month)
+
 const formatLabel = (item: any) => {
   if (activeTab.value === 'daily') {
     return item.date ? item.date.slice(5) : ''
@@ -82,7 +89,7 @@ onMounted(fetchData)
         <div class="chart-bars">
           <div
             v-for="item in chartData"
-            :key="item.date || item.month"
+            :key="itemKey(item)"
             class="bar-column"
           >
             <div class="bar-value-tooltip">{{ formatMoney(item.totalRevenue) }}</div>

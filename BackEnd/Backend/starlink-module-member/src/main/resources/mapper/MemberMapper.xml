@@ -34,34 +34,31 @@
         SELECT * FROM member WHERE phone = #{phone} AND deleted_at IS NULL
     </select>
 
-    <!-- 含已注销记录：用于注册时检测手机号是否被软删除记录占用 -->
+    <!-- 含已注销记录：用于注册时检测手机号是否被软删除记录占用（命中即拒绝注册，不得恢复） -->
     <select id="selectByPhoneIncludeDeleted" resultType="com.starlink.member.entity.Member">
         SELECT * FROM member WHERE phone = #{phone} ORDER BY deleted_at IS NULL DESC, id DESC LIMIT 1
     </select>
 
     <!--
-        复活已注销会员。必须用手写 SQL：实体 deletedAt 标注 @TableLogic，
+        恢复已注销会员。
+
+        安全约束：本语句是 P0-01 修复的一部分，**只允许解除软删除**：
+          - 绝不接受、也绝不写入请求方提供的身份字段（member_no / password_hash / real_name / id_card / birthday）；
+          - 绝不清零资产（balance / available_points / total_points / total_recharge / total_consumption）。
+        恢复 ≠ 新建，也 ≠ 清空历史资产。原账号的身份与资产必须原样保留。
+
+        必须用手写 SQL：实体 deletedAt 标注 @TableLogic，
         MyBatis-Plus 内置 update 会自动追加 deleted_at IS NULL 条件，导致对已删除行的更新匹配 0 行。
+        `deleted_at IS NOT NULL` 保证只对确实处于注销状态的行生效（天然幂等，未注销则影响 0 行）。
+
+        调用方仅限受认证的账户恢复流程；匿名注册路径严禁调用。
     -->
     <update id="reviveDeletedMember">
         UPDATE member SET
-            member_no = #{memberNo},
-            password_hash = #{passwordHash},
-            real_name = #{realName},
-            gender = #{gender},
-            id_card = #{idCard},
-            birthday = #{birthday},
-            level_id = #{levelId},
-            total_points = 0,
-            available_points = 0,
-            total_recharge = 0,
-            balance = 0,
-            total_consumption = 0,
-            register_source = 1,
             status = 1,
             deleted_at = NULL,
             version = version + 1
-        WHERE id = #{id}
+        WHERE id = #{id} AND deleted_at IS NOT NULL
     </update>
 
     <select id="selectByMemberNo" resultType="com.starlink.member.entity.Member">
@@ -85,5 +82,29 @@
         FROM member WHERE status = 3 AND deleted_at IS NULL
         ORDER BY created_at DESC
     </select>
+
+    <!--
+        余额变动前先锁定会员行（悲观行锁）。
+        手写 SQL 绕过 @TableLogic，故显式带 deleted_at IS NULL。
+        必须在事务内使用：锁在提交/回滚时释放，从而串行化同一会员的并发余额变动，
+        保证 member_balance_log 的 before/after 精确、且 member.balance 与最新流水一致。
+    -->
+    <select id="selectByIdForUpdate" resultType="com.starlink.member.entity.Member">
+        SELECT * FROM member WHERE id = #{id} AND deleted_at IS NULL FOR UPDATE
+    </select>
+
+    <!--
+        累计充值金额原子自增。
+        只改 total_recharge，绝不触碰 balance —— 余额由 BalanceService 以「读-算-写 + 乐观锁」
+        维护并同步写入 member_balance_log；若此处用整实体 updateById 写回，
+        会用过期余额覆盖刚入账的余额，破坏「member.balance == 最新流水 balance_after」。
+        version 一并 +1，使并发的乐观锁写入能感知本次变更。
+    -->
+    <update id="incrementTotalRecharge">
+        UPDATE member
+        SET total_recharge = total_recharge + #{amount},
+            version = version + 1
+        WHERE id = #{id} AND deleted_at IS NULL
+    </update>
 
 </mapper>

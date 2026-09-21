@@ -3,9 +3,14 @@
  *
  * 在内存里维护一份可变状态，并持久化到 uni storage，
  * 这样页面跳转 / 刷新后余额、订单、当前会话都会保留，demo 流程才连贯。
+ *
+ * 注意：登录态**不在**这里维护。登录走真实后端 /api/member/login 拿 JWT，
+ * 唯一判据是 storage 里的 token，统一用 isLoggedIn() 读取。
+ * （历史遗留的 MockState.loggedIn 字段从未被置为 true，导致登录后被误判
+ *  为未登录、反复弹「登录状态已失效」跳登录页 —— 已删除。）
  */
 import { STORAGE_KEYS } from '@/config'
-import { getStorage, setStorage, removeStorage } from '@/utils/storage'
+import { getStorage, getToken, setStorage, removeStorage } from '@/utils/storage'
 import type { Member } from '@/types/member'
 import type { CurrentSession, SessionRecord } from '@/types/session'
 import type { Order, ConsumeRecord } from '@/types/order'
@@ -17,8 +22,6 @@ import type { PointsRecord, RechargeRecord } from '@/types/store'
 import * as seed from './seed'
 
 export interface MockState {
-  /** 是否已登录。默认 false —— 与截图里的未登录态一致 */
-  loggedIn: boolean
   member: Member
   signedToday: boolean
   continuousSignDays: number
@@ -48,7 +51,6 @@ export interface MockState {
 
 function createInitialState(): MockState {
   return {
-    loggedIn: false,
     member: JSON.parse(JSON.stringify(seed.seedMember)) as Member,
     signedToday: false,
     continuousSignDays: 3,
@@ -107,9 +109,12 @@ export function resetMockDB(): void {
   save()
 }
 
-/** 退出登录：只清登录标记，保留演示数据 */
-export function logoutMock(): void {
-  mutate((s) => {
-    s.loggedIn = false
-  })
+/**
+ * 是否已登录：以真实后端签发的 JWT 为唯一判据。
+ *
+ * mock 路由的 auth 校验与各 handler 都读这里，不再单独维护登录标记 ——
+ * 两处状态一旦不同步就会出现「已登录却被判未登录」的死循环。
+ */
+export function isLoggedIn(): boolean {
+  return !!getToken()
 }

@@ -119,10 +119,3 @@ export interface ComputerUtilization {
   totalComputers: number
   hourlyUsage: HourlySession[]
 }
-
-export const ORDER_TYPE_MAP: Record<number, string> = {
-  1: '商品销售',
-  2: '上机结算',
-  3: '充值',
-  4: '套餐',
-}
