@@ -15,9 +15,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 /**
- * 公安审计服务实现 — Demo 模拟模式。
+ * 第三方集成服务实现（INT-01 ~ INT-05）— Demo 模拟模式。
  * <p>
- * 全部基于现有 40 张表，无新建表。
+ * 覆盖集成配置、实名认证、短信通道、公安审计与集成日志，
+ * 全部基于现有 40 张表，无新建表，不发起任何真实外部调用。
  */
 @Slf4j
 @Service
@@ -28,7 +29,7 @@ public class IntegrationServiceImpl implements IntegrationService {
     private final SmsNotificationMapper smsNotificationMapper;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    // ==================== 配置管理（system_config） ====================
+    // ==================== INT-01 集成配置（system_config） ====================
 
     @Override
     public List<Map<String, Object>> getConfigs() {
@@ -95,7 +96,7 @@ public class IntegrationServiceImpl implements IntegrationService {
         return result;
     }
 
-    // ==================== INT-01 实名认证（member + audit_log） ====================
+    // ==================== INT-02 实名认证（member + audit_log） ====================
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -146,7 +147,7 @@ public class IntegrationServiceImpl implements IntegrationService {
         return buildPageResult(parsed, total, page, size);
     }
 
-    // ==================== INT-02 短信通道（notification） ====================
+    // ==================== INT-03 短信通道（notification） ====================
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -194,7 +195,7 @@ public class IntegrationServiceImpl implements IntegrationService {
         return buildPageResult(records, total, page, size);
     }
 
-    // ==================== INT-03 公安审计（session + audit_log） ====================
+    // ==================== INT-04 公安审计（session + audit_log） ====================
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -265,7 +266,7 @@ public class IntegrationServiceImpl implements IntegrationService {
         return integrationMapper.selectPendingAuditSessions(50);
     }
 
-    // ==================== 统一日志 ====================
+    // ==================== INT-05 集成日志（audit_log 聚合） ====================
 
     @Override
     public Map<String, Object> getIntegrationLogs(int page, int size, String bizType, Integer status) {

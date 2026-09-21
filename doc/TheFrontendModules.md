@@ -344,7 +344,7 @@ modules/xxx/
 | :----------------- | :------------------------------- |
 | **路径**     | `src/modules/marketing/`       |
 | **对应后端** | `starlink-module-marketing`        |
-| **需求编号** | MKT-01 ~ MKT-05、INT-01 ~ INT-03 |
+| **需求编号** | MKT-01 ~ MKT-05、INT-01 ~ INT-05 |
 
 **页面清单：**
 

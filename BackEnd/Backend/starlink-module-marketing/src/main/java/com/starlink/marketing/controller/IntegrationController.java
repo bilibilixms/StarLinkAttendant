@@ -10,8 +10,9 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * 公安审计控制器。
+ * 第三方集成控制器（INT-01 ~ INT-05）。
  * <p>
+ * 提供集成配置、实名认证、短信通道、公安审计与集成日志接口，
  * 全部基于现有表实现，不依赖新建表。
  */
 @Slf4j
@@ -22,7 +23,7 @@ public class IntegrationController {
 
     private final IntegrationService integrationService;
 
-    // ==================== 配置管理（system_config） ====================
+    // ==================== INT-01 集成配置（system_config） ====================
 
     @GetMapping("/configs")
     public Result<List<Map<String, Object>>> getConfigs() {
@@ -50,7 +51,7 @@ public class IntegrationController {
         return Result.ok(integrationService.testIntegration(id), "测试完成");
     }
 
-    // ==================== INT-01 实名认证（member + audit_log） ====================
+    // ==================== INT-02 实名认证（member + audit_log） ====================
 
     @PostMapping("/id-verify")
     public Result<Map<String, Object>> verifyIdentity(@RequestBody Map<String, Object> body) {
@@ -74,7 +75,7 @@ public class IntegrationController {
         return Result.ok(integrationService.getIdVerificationLogs(page, size, verificationStatus), "查询成功");
     }
 
-    // ==================== INT-02 短信通道（notification） ====================
+    // ==================== INT-03 短信通道（notification） ====================
 
     @PostMapping("/sms/send")
     public Result<Map<String, Object>> sendSms(@RequestBody Map<String, Object> body) {
@@ -97,7 +98,7 @@ public class IntegrationController {
         return Result.ok(integrationService.getSmsLogs(page, size, status, phone), "查询成功");
     }
 
-    // ==================== INT-03 公安审计（session + audit_log） ====================
+    // ==================== INT-04 公安审计（session + audit_log） ====================
 
     @PostMapping("/audit/generate")
     public Result<Map<String, Object>> generateAuditData() {
@@ -135,7 +136,7 @@ public class IntegrationController {
         return Result.ok(integrationService.getAuditLogs(page, size, uploaded), "查询成功");
     }
 
-    // ==================== 统一集成日志（audit_log 聚合） ====================
+    // ==================== INT-05 集成日志（audit_log 聚合） ====================
 
     @GetMapping("/logs")
     public Result<Map<String, Object>> getIntegrationLogs(
