@@ -8,9 +8,11 @@ import com.starlink.system.dto.resp.UserInfoResponse;
 import com.starlink.system.security.SecurityUser;
 import com.starlink.system.service.AuthService;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -26,8 +28,12 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public Result<Void> logout() {
-        authService.logout();
+    public Result<Void> logout(HttpServletRequest request) {
+        String bearerToken = request.getHeader("Authorization");
+        if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
+            String token = bearerToken.substring(7);
+            authService.logout(token);
+        }
         return Result.ok();
     }
 

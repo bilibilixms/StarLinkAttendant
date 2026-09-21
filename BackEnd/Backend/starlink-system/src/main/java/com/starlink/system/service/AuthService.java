@@ -22,6 +22,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.starlink.common.util.RedisService;
+import cn.hutool.crypto.SecureUtil;
+import java.time.Duration;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -32,6 +36,7 @@ public class AuthService {
     private final PermissionMapper permissionMapper;
     private final JwtTokenUtil jwtTokenUtil;
     private final PasswordEncoder passwordEncoder;
+    private final RedisService redisService;
 
     public LoginResponse login(LoginRequest request) {
         Employee employee = employeeMapper.selectByPhone(request.getUsername());
@@ -75,8 +80,19 @@ public class AuthService {
         return response;
     }
 
-    public void logout() {
-        log.info("用户退出登录");
+    public void logout(String token) {
+        if (token == null || token.isBlank()) {
+            return;
+        }
+        long remaining = jwtTokenUtil.getRemainingSeconds(token);
+        if (remaining <= 0) {
+            // token 已过期，没必要写黑名单
+            log.info("用户退出登录（token 已过期）");
+            return;
+        }
+        String key = "jwt:blacklist:" + SecureUtil.sha256(token);
+        redisService.set(key, "1", Duration.ofSeconds(remaining));
+        log.info("用户退出登录，token 已加入黑名单，剩余 {} 秒", remaining);
     }
 
     public LoginResponse refreshToken(RefreshTokenRequest request) {

@@ -89,7 +89,7 @@ public class PointsService {
         log.info("会员积分扣除: memberId={}, points={}", memberId, points);
     }
 
-    public PageResult<PointsRecordResponse> getPointsRecords(Long memberId, Byte bizType, 
+    public PageResult<PointsRecordResponse> getPointsRecords(Long memberId, Byte bizType,
                                                              String startTime, String endTime,
                                                              PageQuery pageQuery) {
         Page<PointsRecordResponse> page = new Page<>(pageQuery.getPage(), pageQuery.getSize());

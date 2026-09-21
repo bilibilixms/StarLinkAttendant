@@ -1,5 +1,7 @@
 package com.starlink.system.security;
 
+import cn.hutool.crypto.SecureUtil;
+import com.starlink.common.util.RedisService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,6 +32,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final EmployeeMapper employeeMapper;
     private final RoleMapper roleMapper;
     private final PermissionMapper permissionMapper;
+    private final RedisService redisService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -40,6 +43,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 Long userId = jwtTokenUtil.getUserIdFromToken(token);
                 String username = jwtTokenUtil.getUsernameFromToken(token);
+
+                // 黑名单校验：token 已被主动登出则视为未认证
+                String blacklistKey = "jwt:blacklist:" + SecureUtil.sha256(token);
+                if (redisService.exists(blacklistKey)) {
+                    log.debug("Token 已在登出黑名单，拒绝认证");
+                    filterChain.doFilter(request, response);
+                    return;
+                }
 
                 if (userId < 0) {
                     // 会员身份：token 里 userId = -memberId，username = "m:phone"
