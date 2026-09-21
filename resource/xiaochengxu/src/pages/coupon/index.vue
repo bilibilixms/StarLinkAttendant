@@ -127,7 +127,7 @@ function receivedCount(t: CouponTemplate): number {
       v-if="!user.isLogin"
       state="empty"
       empty-text="登录后查看卡券"
-      empty-desc="登录网鱼会员即可领取优惠券"
+      empty-desc="登录星络会员即可领取优惠券"
       empty-icon="empty-coupon"
     >
       <template #action>

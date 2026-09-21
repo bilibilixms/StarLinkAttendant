@@ -1,7 +1,7 @@
 {
-    "name" : "网鱼电竞",
+    "name" : "星络灵侍馆",
     "appid" : "__UNI__2C7FBB1",
-    "description" : "网吧管理系统 - 会员用户端微信小程序",
+    "description" : "星络灵侍馆管理系统 - 会员用户端微信小程序",
     "versionName" : "1.0.0",
     "versionCode" : "100",
     "transformPx" : false,
@@ -43,7 +43,7 @@
         "usingComponents" : true
     },
     "h5" : {
-        "title" : "网鱼电竞",
+        "title" : "星络灵侍馆",
         "router" : {
             "mode" : "hash",
             "base" : "./"

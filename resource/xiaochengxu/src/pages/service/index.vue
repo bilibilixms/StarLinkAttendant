@@ -4,7 +4,7 @@
  *
  * 结构：淡蓝紫渐变头部（耳机 + 居中「服务」+ 更多）
  * → 预订状态卡（未预约时显示「您还没有预订服务」+ 立即预订）
- * → 「网鱼电竞服务有什么？」2 列宫格
+ * → 「星络灵侍馆服务有什么？」2 列宫格
  * → 「电竞酒店服务有什么？」2 列宫格
  */
 import { ref } from 'vue'
@@ -133,7 +133,7 @@ function onServiceTap(item: SvcItem): void {
       navTo('/pages/feedback/index')
       break
     case 'hotel-wifi':
-      toast('已连接「网鱼电竞」免费 WIFI')
+      toast('已连接「星络灵侍馆」免费 WIFI')
       break
     default:
       toast('功能开发中')
@@ -244,9 +244,9 @@ function onHeadset(): void {
       </template>
     </view>
 
-    <!-- ==================== 网鱼电竞服务 ==================== -->
+    <!-- ==================== 星络灵侍馆服务 ==================== -->
     <view class="card svc-block">
-      <text class="svc-block__title">网鱼电竞服务有什么？</text>
+      <text class="svc-block__title">星络灵侍馆服务有什么？</text>
       <view class="svc-grid">
         <view
           v-for="item in CAFE_SERVICES"

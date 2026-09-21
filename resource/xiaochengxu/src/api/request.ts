@@ -46,14 +46,14 @@ export function initApiMode(): void {
   modeLogged = true
   if (USE_MOCK) {
     console.log(
-      '%c[IntCafe] 数据源 = 混合模式%c  (VITE_USE_MOCK=true)\n' +
+      '%c[StarLink] 数据源 = 混合模式%c  (VITE_USE_MOCK=true)\n' +
         '会员端登录/充值/积分接口走真实后端 /api/member/**，其他业务走本地 mock。',
       'color:#5B5BD6;font-weight:bold',
       'color:#8A8A99'
     )
   } else {
     console.log(
-      `%c[IntCafe] 数据源 = 真实后端%c  ${BASE_URL || '(同源)'}/api/member/**`,
+      `%c[StarLink] 数据源 = 真实后端%c  ${BASE_URL || '(同源)'}/api/member/**`,
       'color:#22C55E;font-weight:bold',
       'color:#8A8A99'
     )

@@ -158,7 +158,7 @@ function statusText(o: Order): string {
       v-if="!user.isLogin"
       state="empty"
       empty-text="登录后查看订单"
-      empty-desc="登录网鱼会员即可查看历史订单"
+      empty-desc="登录星络会员即可查看历史订单"
       empty-icon="empty-order"
     >
       <template #action>

@@ -71,7 +71,7 @@ export const seedBanners = [
 
 export const seedHomeActivities = [
   { key: 'invite', title: '邀新客', subtitle: '3小时免费上网', action: '查看', theme: 'lavender' },
-  { key: 'didi', title: '滴滴打车', subtitle: '到网鱼5折起', action: '查看', theme: 'orange' },
+  { key: 'didi', title: '滴滴打车', subtitle: '到星络5折起', action: '查看', theme: 'orange' },
   { key: 'treasure', title: '天天夺宝', subtitle: '每天免费抽', action: '免费', theme: 'pink' },
   { key: 'sign', title: '签到领奖', subtitle: '做任务赢奖励', action: '签到', theme: 'blue' },
 ]
@@ -80,7 +80,7 @@ export const seedHomeActivities = [
 
 export const seedServiceGrid = [
   {
-    group: '网鱼电竞服务有什么？',
+    group: '星络灵侍馆服务有什么？',
     items: [
       { key: 'reserve', title: '预约订座', desc: '提前锁定位置', icon: 'svc-seat', theme: 'cyan' },
       { key: 'scan', title: '扫码上机', desc: '一键光速开机', icon: 'svc-power', theme: 'blue' },
@@ -108,7 +108,7 @@ export const seedServiceGrid = [
 export const seedStores: Store[] = [
   {
     id: 1,
-    name: '网鱼电竞(上海虹桥火车站天街店)',
+    name: '星络灵侍馆(上海虹桥火车站天街店)',
     address: '上海市闵行区申长路 688 号龙湖天街 4F',
     distance: 0.8,
     businessStatus: 1,
@@ -121,7 +121,7 @@ export const seedStores: Store[] = [
   },
   {
     id: 2,
-    name: '网鱼电竞(上海中山公园龙之梦店)',
+    name: '星络灵侍馆(上海中山公园龙之梦店)',
     address: '上海市长宁区长宁路 1018 号龙之梦 7F',
     distance: 4.2,
     businessStatus: 1,
@@ -134,7 +134,7 @@ export const seedStores: Store[] = [
   },
   {
     id: 3,
-    name: '网鱼电竞(上海静安大悦城店)',
+    name: '星络灵侍馆(上海静安大悦城店)',
     address: '上海市静安区西藏北路 166 号大悦城 6F',
     distance: 6.7,
     businessStatus: 0,
@@ -454,7 +454,7 @@ export const seedPosts: Post[] = [
   },
   {
     id: 3,
-    author: { id: 9002, name: '网鱼电竞官方', avatar: `${IMG}/avatar/official2.jpg`, badge: '官方', level: 5 },
+    author: { id: 9002, name: '星络灵侍馆官方', avatar: `${IMG}/avatar/official2.jpg`, badge: '官方', level: 5 },
     title: '九月会员日｜充值满 200 送 50 网费',
     content: '每月 18 日会员日，充值满 200 元赠送 50 元网费，另有抽奖机会赢取机械键盘。',
     topics: ['会员日', '充值活动'],
@@ -579,7 +579,7 @@ export const seedOrders: Order[] = [
     orderNo: 'OD20260710001',
     orderType: 1,
     memberId: 1,
-    storeName: '网鱼电竞(上海虹桥火车站天街店)',
+    storeName: '星络灵侍馆(上海虹桥火车站天街店)',
     seatNo: 'A03',
     totalAmount: 19,
     discountAmount: 1,
@@ -600,7 +600,7 @@ export const seedOrders: Order[] = [
     orderNo: 'OD20260713002',
     orderType: 1,
     memberId: 1,
-    storeName: '网鱼电竞(上海虹桥火车站天街店)',
+    storeName: '星络灵侍馆(上海虹桥火车站天街店)',
     seatNo: 'B12',
     totalAmount: 68,
     discountAmount: 10,
@@ -619,7 +619,7 @@ export const seedOrders: Order[] = [
     orderNo: 'OD20260919003',
     orderType: 1,
     memberId: 1,
-    storeName: '网鱼电竞(上海虹桥火车站天街店)',
+    storeName: '星络灵侍馆(上海虹桥火车站天街店)',
     seatNo: 'A06',
     totalAmount: 32,
     discountAmount: 0,
@@ -638,7 +638,7 @@ export const seedOrders: Order[] = [
     orderNo: 'OD20260919004',
     orderType: 1,
     memberId: 1,
-    storeName: '网鱼电竞(上海虹桥火车站天街店)',
+    storeName: '星络灵侍馆(上海虹桥火车站天街店)',
     seatNo: 'A06',
     totalAmount: 20,
     discountAmount: 2,
@@ -657,7 +657,7 @@ export const seedOrders: Order[] = [
     orderNo: 'OD20260705005',
     orderType: 1,
     memberId: 1,
-    storeName: '网鱼电竞(上海中山公园龙之梦店)',
+    storeName: '星络灵侍馆(上海中山公园龙之梦店)',
     totalAmount: 22,
     discountAmount: 2,
     payableAmount: 20,
@@ -674,10 +674,10 @@ export const seedOrders: Order[] = [
 ]
 
 export const seedSessionRecords: SessionRecord[] = [
-  { id: 1, sessionNo: 'SES202607141957218486', storeName: '网鱼电竞(上海虹桥火车站天街店)', computerName: '普通区-A01', areaName: '普通区', startTime: '2026-07-14 19:57:21', endTime: '2026-07-14 23:40:00', durationMinutes: 223, totalAmount: 15, paidAmount: 15, status: 2 },
-  { id: 2, sessionNo: 'SES202607121400001', storeName: '网鱼电竞(上海虹桥火车站天街店)', computerName: '普通区-B06', areaName: '普通区', startTime: '2026-07-12 14:00:00', endTime: '2026-07-12 18:00:00', durationMinutes: 240, totalAmount: 17, paidAmount: 17, status: 2 },
-  { id: 3, sessionNo: 'SES202607112000002', storeName: '网鱼电竞(上海中山公园龙之梦店)', computerName: '高级区-C02', areaName: '高级区', startTime: '2026-07-11 20:00:00', endTime: '2026-07-11 22:15:00', durationMinutes: 135, totalAmount: 26, paidAmount: 22.1, status: 2 },
-  { id: 4, sessionNo: 'SES202607100930003', storeName: '网鱼电竞(上海虹桥火车站天街店)', computerName: '普通区-A09', areaName: '普通区', startTime: '2026-07-10 09:30:00', endTime: '2026-07-10 12:00:00', durationMinutes: 150, totalAmount: 10, paidAmount: 10, status: 2 },
+  { id: 1, sessionNo: 'SES202607141957218486', storeName: '星络灵侍馆(上海虹桥火车站天街店)', computerName: '普通区-A01', areaName: '普通区', startTime: '2026-07-14 19:57:21', endTime: '2026-07-14 23:40:00', durationMinutes: 223, totalAmount: 15, paidAmount: 15, status: 2 },
+  { id: 2, sessionNo: 'SES202607121400001', storeName: '星络灵侍馆(上海虹桥火车站天街店)', computerName: '普通区-B06', areaName: '普通区', startTime: '2026-07-12 14:00:00', endTime: '2026-07-12 18:00:00', durationMinutes: 240, totalAmount: 17, paidAmount: 17, status: 2 },
+  { id: 3, sessionNo: 'SES202607112000002', storeName: '星络灵侍馆(上海中山公园龙之梦店)', computerName: '高级区-C02', areaName: '高级区', startTime: '2026-07-11 20:00:00', endTime: '2026-07-11 22:15:00', durationMinutes: 135, totalAmount: 26, paidAmount: 22.1, status: 2 },
+  { id: 4, sessionNo: 'SES202607100930003', storeName: '星络灵侍馆(上海虹桥火车站天街店)', computerName: '普通区-A09', areaName: '普通区', startTime: '2026-07-10 09:30:00', endTime: '2026-07-10 12:00:00', durationMinutes: 150, totalAmount: 10, paidAmount: 10, status: 2 },
 ]
 
 export const seedRechargeRecords: RechargeRecord[] = [
@@ -720,7 +720,7 @@ export const seedReservations: Reservation[] = [
     reservationNo: 'RS20260918001',
     type: 1,
     storeId: 1,
-    storeName: '网鱼电竞(上海虹桥火车站天街店)',
+    storeName: '星络灵侍馆(上海虹桥火车站天街店)',
     areaId: 2,
     areaName: '高级区',
     computerId: 2003,
@@ -740,7 +740,7 @@ export const seedReservations: Reservation[] = [
     reservationNo: 'RS20260910002',
     type: 2,
     storeId: 1,
-    storeName: '网鱼电竞(上海虹桥火车站天街店)',
+    storeName: '星络灵侍馆(上海虹桥火车站天街店)',
     roomTypeName: '电竞双人房',
     startTime: '2026-09-10 14:00:00',
     endTime: '2026-09-11 12:00:00',

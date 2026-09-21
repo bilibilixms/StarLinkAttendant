@@ -1,8 +1,8 @@
 {
-  "name": "intcafe-applet",
+  "name": "starlink-applet",
   "version": "1.0.0",
   "private": true,
-  "description": "网吧管理系统 - 微信小程序用户端 (uni-app + Vue3 + TypeScript)",
+  "description": "星络灵侍馆管理系统 - 微信小程序用户端 (uni-app + Vue3 + TypeScript)",
   "scripts": {
     "dev": "uni -p h5",
     "dev:h5": "uni -p h5",

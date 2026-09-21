@@ -79,7 +79,7 @@ const TOOLS = [
   { key: 'favorite', title: '收藏', icon: 'tool-favorite', path: '/pages/favorite/index' },
   { key: 'service', title: '在线客服', icon: 'tool-service', path: '/pages/service/customer' },
   { key: 'join', title: '加入我们', icon: 'tool-join', path: '' },
-  { key: 'coin', title: '网鱼币兑换', icon: 'tool-coin', path: '/pages/points/index' },
+  { key: 'coin', title: '星币兑换', icon: 'tool-coin', path: '/pages/points/index' },
   { key: 'report', title: '投诉举报', icon: 'tool-report', path: '/pages/feedback/index?type=report' },
 ]
 
@@ -87,7 +87,7 @@ function onToolTap(item: { key: string; title: string; path: string }): void {
   if (!item.path) {
     uni.showModal({
       title: '加入我们',
-      content: '网鱼电竞长期招聘门店店员与电竞运营，简历请投递至 hr@intcafe.com',
+      content: '星络灵侍馆长期招聘门店店员与电竞运营，简历请投递至 hr@starlink.com',
       showCancel: false,
       confirmColor: '#5B5BD6',
     })
@@ -107,7 +107,7 @@ function onPosts(): void {
 function onGiftBanner(): void {
   uni.showModal({
     title: '添加好友领好礼',
-    content: '添加网鱼电竞福利官微信，即可领取最高 328 元优惠券大礼包。',
+    content: '添加星络灵侍福利官微信，即可领取最高 328 元优惠券大礼包。',
     confirmText: '复制微信号',
     cancelText: '知道了',
     confirmColor: '#5B5BD6',

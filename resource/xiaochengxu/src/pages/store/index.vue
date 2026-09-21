@@ -67,7 +67,7 @@ function onPick(s: Store): void {
   app.setStore({
     id: s.id,
     name: s.name,
-    shortName: s.name.replace(/^网鱼电竞\(|\)$/g, ''),
+    shortName: s.name.replace(/^星络灵侍馆\(|\)$/g, ''),
     address: s.address,
   })
   toastSuccess(`已切换到 ${s.name}`)

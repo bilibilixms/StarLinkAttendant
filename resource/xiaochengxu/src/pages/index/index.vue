@@ -91,7 +91,7 @@ const fnList = computed(() => (bizTab.value === 'cafe' ? CAFE_FN : HOTEL_FN))
 
 function onFnTap(item: FnItem): void {
   if (item.key === 'wifi') {
-    toast('已连接「网鱼电竞」免费 WIFI')
+    toast('已连接「星络灵侍馆」免费 WIFI')
     return
   }
   if (item.path) navTo(item.path)
@@ -193,7 +193,7 @@ function onProductTap(p: Product): void {
 }
 
 function onStoreTap(s: Store): void {
-  app.setStore({ id: s.id, name: s.name, shortName: s.name.replace(/^网鱼电竞\(|\)$/g, ''), address: s.address })
+  app.setStore({ id: s.id, name: s.name, shortName: s.name.replace(/^星络灵侍馆\(|\)$/g, ''), address: s.address })
   toast(`已切换到 ${s.name}`)
 }
 </script>
@@ -230,7 +230,7 @@ function onStoreTap(s: Store): void {
           <text class="member-bar__hi-text">Hi</text>
         </view>
         <text class="member-bar__text">
-          {{ user.isLogin ? `${user.nickname} · ${user.levelName}` : '登录网鱼会员享多重权益' }}
+          {{ user.isLogin ? `${user.nickname} · ${user.levelName}` : '登录星络会员享多重权益' }}
         </text>
         <AppButton type="gold" size="sm" icon="hand" @tap.stop="onSign">签到</AppButton>
       </view>
@@ -405,7 +405,7 @@ function onStoreTap(s: Store): void {
 
     <!-- ==================== 未登录吸底登录条 ==================== -->
     <view v-if="!user.isLogin" class="login-bar">
-      <text class="login-bar__text">登录网鱼会员享多重权益</text>
+      <text class="login-bar__text">登录星络会员享多重权益</text>
       <AppButton type="primary" size="sm" @tap="goLogin('/pages/index/index')">立即登录</AppButton>
     </view>
 

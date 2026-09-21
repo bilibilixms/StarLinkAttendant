@@ -83,8 +83,8 @@ function onNotifyChange(e: Event): void {
 
 function onAbout(): void {
   uni.showModal({
-    title: '关于网鱼电竞',
-    content: `版本 ${APP_VERSION}\n网吧管理系统 · 会员用户端\n\n本小程序为演示项目，用于展示上机、充值、点单、领券等会员自助流程。`,
+    title: '关于星络灵侍馆',
+    content: `版本 ${APP_VERSION}\n星络灵侍馆管理系统 · 会员用户端\n\n本小程序为演示项目，用于展示上机、充值、点单、领券等会员自助流程。`,
     showCancel: false,
     confirmColor: '#5B5BD6',
   })
@@ -205,7 +205,7 @@ function onSecurity(): void {
       <AppButton type="ghost" size="lg" block @tap="onLogout">退出登录</AppButton>
     </view>
 
-    <text class="st__footer">网鱼电竞 · 网吧管理系统 v{{ APP_VERSION }}</text>
+    <text class="st__footer">星络灵侍馆 · 星络灵侍馆管理系统 v{{ APP_VERSION }}</text>
   </view>
 </template>
 

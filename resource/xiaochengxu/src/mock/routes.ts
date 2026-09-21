@@ -108,7 +108,7 @@ function endSession(): SelfEndResult {
   return mutate((s) => {
     if (!s.currentSession) throw new Error('当前没有进行中的上机会话')
     const cs = buildCurrentSession(s)!
-    // 不足 1 分钟按 1 分钟起计费（真实网吧也是 1 分钟起计），
+    // 不足 1 分钟按 1 分钟起计费（真实电竞馆也是 1 分钟起计），
     // 否则刚开机就下机会被拒绝，体验很差。
     const minutes = Math.max(1, cs.durationMinutes)
 
@@ -781,11 +781,11 @@ export const routes: MockRoute[] = [
       if (!t) throw new Error('任务不存在或已结束')
       return {
         ...t,
-        steps: ['登录游戏并绑定网鱼账号', '完成指定对局/时长要求', '回到小程序点击「领取奖励」'],
+        steps: ['登录游戏并绑定星络账号', '完成指定对局/时长要求', '回到小程序点击「领取奖励」'],
         rules: [
-          '每个网鱼账号仅可领取一次奖励',
+          '每个星络账号仅可领取一次奖励',
           '奖励将在领取后 24 小时内发放至游戏账号',
-          '如发现作弊行为，网鱼有权取消奖励资格',
+          '如发现作弊行为，星络有权取消奖励资格',
         ],
       }
     },

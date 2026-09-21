@@ -7,18 +7,18 @@ export const API_PREFIX = '/api/member'
 
 /** 本地缓存 key */
 export const STORAGE_KEYS = {
-  TOKEN: 'intcafe_token',
-  MEMBER: 'intcafe_member',
-  CART: 'intcafe_cart',
-  MOCK_DB: 'intcafe_mock_db',
-  CURRENT_STORE: 'intcafe_current_store',
-  SEARCH_HISTORY: 'intcafe_search_history',
+  TOKEN: 'starlink_token',
+  MEMBER: 'starlink_member',
+  CART: 'starlink_cart',
+  MOCK_DB: 'starlink_mock_db',
+  CURRENT_STORE: 'starlink_current_store',
+  SEARCH_HISTORY: 'starlink_search_history',
 } as const
 
 /** 默认门店（Demo 阶段单店部署，后端起来后换成门店列表接口） */
 export const DEFAULT_STORE = {
   id: 1,
-  name: '网鱼电竞(上海虹桥火车站天街店)',
+  name: '星络灵侍馆(上海虹桥火车站天街店)',
   shortName: '上海虹桥火车站天街店',
   address: '上海市闵行区申长路 688 号龙湖天街 4F',
 }

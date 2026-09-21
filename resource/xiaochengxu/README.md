@@ -1,6 +1,6 @@
-# 网鱼电竞 · 微信小程序用户端
+# 星络灵侍馆 · 微信小程序用户端
 
-网吧管理系统（Internet Cafe Management System）的**会员顾客端**小程序。
+星络灵侍馆管理系统（Internet Cafe Management System）的**会员顾客端**小程序。
 顾客在这里自助完成「扫码上机 → 充值 → 点单 → 领券 → 查账」，减少前台排队。
 
 技术栈：**uni-app (Vue 3 + TypeScript + Vite)** + Pinia，一套代码同时编译 H5 与微信小程序。

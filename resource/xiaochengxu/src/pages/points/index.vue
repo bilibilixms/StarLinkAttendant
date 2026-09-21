@@ -124,7 +124,7 @@ async function onExchange(g: PointsGoods): Promise<void> {
       v-if="!user.isLogin"
       state="empty"
       empty-text="登录后查看积分"
-      empty-desc="登录网鱼会员即可累计积分"
+      empty-desc="登录星络会员即可累计积分"
       empty-icon="empty-box"
     >
       <template #action>

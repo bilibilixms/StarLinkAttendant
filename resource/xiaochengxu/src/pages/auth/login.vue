@@ -73,7 +73,7 @@ function onAgreement(type: 'user' | 'privacy'): void {
     title: type === 'user' ? '用户协议' : '隐私政策',
     content:
       type === 'user'
-        ? '本小程序为网吧管理系统演示项目。登录即表示您同意我们为您创建会员账号，并使用您的手机号进行身份识别。'
+        ? '本小程序为星络灵侍馆管理系统演示项目。登录即表示您同意我们为您创建会员账号，并使用您的手机号进行身份识别。'
         : '我们仅收集完成上机、充值、点单所必需的信息（手机号、消费记录），不会向第三方出售您的个人信息。',
     showCancel: false,
     confirmColor: '#5B5BD6',
@@ -92,16 +92,16 @@ function onSkip(): void {
       <AppStatusBar />
       <view class="login__brand">
         <view class="login__logo">
-          <text class="login__logo-text">网鱼</text>
+          <text class="login__logo-text">星络</text>
         </view>
-        <text class="login__title">网鱼电竞</text>
-        <text class="login__subtitle">登录网鱼会员享多重权益</text>
+        <text class="login__title">星络灵侍馆</text>
+        <text class="login__subtitle">登录星络会员享多重权益</text>
       </view>
     </view>
 
     <!-- ==================== 权益 ==================== -->
     <view class="benefits">
-      <view v-for="b in ['余额通网吧通用', '下单送到机位', '会员专属折扣', '积分兑换好礼']" :key="b" class="benefit">
+      <view v-for="b in ['余额通门店通用', '下单送到机位', '会员专属折扣', '积分兑换好礼']" :key="b" class="benefit">
         <AppIcon name="check" :size="32" color="#5B5BD6" :stroke-width="2.2" />
         <text class="benefit__text">{{ b }}</text>
       </view>
