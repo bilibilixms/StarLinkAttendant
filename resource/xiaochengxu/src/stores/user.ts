@@ -102,14 +102,14 @@ export const useUserStore = defineStore('user', () => {
       const current = member.value
       const next: Member = {
         ...current,
-        // 仅用后端权威字段覆盖；其余保持登录时的本地值
+        // 用后端权威字段覆盖（余额、积分等均以数据库为准）
         id: profile.id || current.id,
         memberNo: profile.memberNo || current.memberNo,
         realName: profile.realName || current.realName,
         phone: profile.phone || current.phone,
         levelId: profile.levelId || current.levelId,
         levelName: profile.levelName || current.levelName,
-        // 余额由 patchBalance 专门管理（充值/支付/下机后调），不被后端原始值覆盖
+        balance: profile.balance,
         availablePoints: profile.availablePoints,
         totalPoints: profile.totalPoints,
         totalRecharge: profile.totalRecharge,
@@ -118,6 +118,7 @@ export const useUserStore = defineStore('user', () => {
       }
 
       const changed =
+        next.balance !== current.balance ||
         next.availablePoints !== current.availablePoints ||
         next.totalPoints !== current.totalPoints ||
         next.totalRecharge !== current.totalRecharge ||

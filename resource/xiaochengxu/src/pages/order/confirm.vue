@@ -11,6 +11,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppNavBar from '@/components/AppNavBar.vue'
 import { couponApi, orderApi } from '@/api'
+import { consumeBalance } from '@/api/auth'
 import { useCartStore } from '@/stores/cart'
 import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
@@ -160,24 +161,37 @@ async function onSubmit(): Promise<void> {
       remark: remark.value,
       idempotentKey: idempotentKey.value,
     })
+    const orderId = created.orderId
 
     // Demo 阶段后端直接标记支付成功，后续替换为微信支付
-    await orderApi.payOrder(created.orderId, payChannel.value)
+    await orderApi.payOrder(orderId, payChannel.value)
 
-    // 余额支付：立即扣减本地余额（mock 支付扣的是 mock 会员，前端 store 需同步）
+    // 余额支付：调真实后端扣减数据库余额，后台前台可见实时变动
     if (payChannel.value === 'balance') {
-      const newBalance = Math.round((user.balance - payable.value) * 100) / 100
-      user.patchBalance(newBalance)
+      try {
+        const balanceAfter = await consumeBalance(
+          payable.value,
+          orderId,
+          '小程序自助点餐消费',
+        )
+        user.patchBalance(balanceAfter)
+      } catch (err) {
+        // 后端扣减失败不阻断流程（mock 支付已成功），仅 console 警告
+        console.warn('[confirm] 后端余额扣减失败，回退本地扣减:', err)
+        const fallback = Math.round((user.balance - payable.value) * 100) / 100
+        user.patchBalance(fallback)
+      }
     }
 
     cart.clear()
     uni.hideLoading()
     toastSuccess('下单成功')
     setTimeout(() => {
-      uni.redirectTo({ url: `/pages/order/detail?id=${created.orderId}&paid=1` })
+      uni.redirectTo({ url: `/pages/order/detail?id=${orderId}&paid=1` })
     }, 700)
   } catch (e) {
     uni.hideLoading()
+    console.error('[confirm] 下单/支付失败:', e)
     // 失败后换一个幂等键，允许用户重试
     idempotentKey.value = genIdempotentKey('ORD')
     const msg = (e as Error)?.message

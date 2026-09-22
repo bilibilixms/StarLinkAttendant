@@ -121,3 +121,24 @@ export function getMemberProfile(): Promise<MemberProfile | null> {
     }
   })
 }
+
+/**
+ * 会员余额消费（小程序自助点餐等场景）。
+ * 调真实后端 POST /api/member/balance/consume，从数据库扣减余额并写流水。
+ * post 经 unwrap 拆包后直接返回 data（BigDecimal 余额值）。
+ * @param amount 消费金额
+ * @param bizId 业务单据ID（如订单号），可为空
+ * @param remark 备注，可为空
+ * @returns 扣减后的余额
+ */
+export function consumeBalance(
+  amount: number,
+  bizId?: number,
+  remark?: string,
+): Promise<number> {
+  return post<number | string>(
+    `${API_PREFIX}/balance/consume`,
+    { amount, bizId, remark },
+    { bypassMock: true, silent: true },
+  ).then((res) => Number(res))
+}

@@ -89,4 +89,9 @@
         ORDER BY created_at DESC
     </select>
 
+    <!-- 按主键查询并加行锁（FOR UPDATE），用于余额变动场景 -->
+    <select id="selectByIdForUpdate" resultType="com.starlink.member.entity.Member">
+        SELECT * FROM member WHERE id = #{id} AND deleted_at IS NULL FOR UPDATE
+    </select>
+
 </mapper>
