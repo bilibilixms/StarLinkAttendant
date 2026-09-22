@@ -76,6 +76,22 @@ export interface RechargeRecord {
   createdAt: string
 }
 
+/**
+ * 充值试算（预览）结果 —— 对齐后端 `RechargePreviewResponse`。
+ * 仅用于提交前展示：赠送金额由后端按生效的充值活动阶梯计算，前端不复制该规则。
+ */
+export interface RechargePreview {
+  memberId: number
+  /** 实付充值金额 */
+  rechargeAmount: number
+  /** 活动赠送金额（未命中任何档位为 0） */
+  bonusAmount: number
+  /** 实际到账 = 实付 + 赠送 */
+  totalAmount: number
+  /** 命中的活动 ID；未命中为 null */
+  campaignId: number | null
+}
+
 /* ==================== 积分 ==================== */
 
 /** 积分变动类型：1-消费获得 2-活动获得 3-兑换消耗 4-过期扣减 */

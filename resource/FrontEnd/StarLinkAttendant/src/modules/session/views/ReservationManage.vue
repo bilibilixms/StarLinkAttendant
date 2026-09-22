@@ -69,8 +69,9 @@ async function searchMemberForCreate() {
     const { getMemberList } = await import('@/modules/member/api')
     const res = await getMemberList({ page: 1, size: 1, phone: createForm.memberPhone })
     const records = res.data.records || []
-    if (records.length > 0) {
-      createForm.memberId = records[0].id
+    const first = records[0]
+    if (first) {
+      createForm.memberId = first.id
       memberFound.value = true
     } else {
       createForm.memberId = null

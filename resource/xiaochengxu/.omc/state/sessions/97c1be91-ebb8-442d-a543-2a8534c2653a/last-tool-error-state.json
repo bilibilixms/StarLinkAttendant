@@ -1,7 +1,0 @@
-{
-  "tool_name": "Bash",
-  "tool_input_preview": "{\"command\":\"cd \\\"D:/shixi_project/wangbaguanlixitong/xiaochengxu/dist/dev/mp-weixin\\\" && node -e \\\"\\nconst fs=require('fs'), path=require('path');\\nfunction walk(d, out=[]){for(const e of fs.readdirSy...",
-  "error": "Exit code 1\n[eval]:18\r\n    if(!/^[A-Za-z_$][\\w$]*(\\.[A-Za-z_$][\\w$]*)*$?$?$?|\\w+$?$?$?$?$?$/.test(expr)) {}\r\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\r\n\r\nSyntaxError: Invalid regular expression: /^[A-Za-z_$][\\w$]*(\\.[A-Za-z_$][\\w$]*)*$?$?$?|\\w+$?$?$?$?$?$/: Nothing to repeat\r\n    at makeContextifyScript (node:internal/vm:185:14)\r\n    at compileScript (node:internal/process/execution:386:10)\r\n    at node:internal/process/execution:450:25\r\n    at [eval]-wrapper:6:24\r\n  ...",
-  "timestamp": "2026-09-21T00:51:05.079Z",
-  "retry_count": 1
-}

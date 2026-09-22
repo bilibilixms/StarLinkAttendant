@@ -6,7 +6,7 @@
  */
 import { get, post } from './request'
 import { API_PREFIX } from '@/config'
-import type { RechargeRecord, RechargeResult } from '@/types/store'
+import type { RechargePreview, RechargeRecord, RechargeResult } from '@/types/store'
 import type { PageResult } from '@/types/api'
 
 /** 后端 RechargeRecordResponse 原始结构 */
@@ -57,10 +57,12 @@ function mapRechargeRecord(r: RechargeRecordResponse): RechargeRecord {
 
 /**
  * 充值下单。
- * 后端 RechargeRequest 字段：memberId / amount / paymentMethod / operatorId / campaignId，
- * 没有 idempotentKey，前端调用方仍可传 idempotentKey 但会被忽略。
+ * 后端 RechargeRequest 字段：memberId / amount / paymentMethod / operatorId / campaignId / idempotentKey。
+ * <p>
+ * `idempotentKey` <b>原样透传</b>：本层不生成、不覆盖 —— 由调用方（充值页）为「同一个逻辑充值请求」
+ * 生成一个键并在重试时复用，服务端据此保证只入账一次。
  * 后端 RechargeController.recharge 返回 RechargeRecordResponse，
- * 这里映射为前端 RechargeResult（balanceAfter 取 balanceAfter 字段，actualAmount 取 totalAmount）。
+ * 这里映射为前端 RechargeResult（bonusAmount 为活动赠送、totalAmount 为实际到账）。
  */
 export function recharge(
   memberId: number,
@@ -76,6 +78,8 @@ export function recharge(
     memberId,
     amount: payload.amount,
     paymentMethod: PAY_CHANNEL_TO_METHOD[payload.payChannel] ?? 1,
+    // 幂等键必须透传：后端据此生成确定性单号 + 唯一索引，保证重复提交不重复入账
+    ...(payload.idempotentKey ? { idempotentKey: payload.idempotentKey } : {}),
   }).then((r) => ({
     rechargeId: r.id,
     rechargeNo: r.rechargeNo,
@@ -86,6 +90,15 @@ export function recharge(
     payChannel: r.paymentMethodLabel ?? payload.payChannel,
     paidAt: r.paidAt ?? r.createdAt ?? '',
   }))
+}
+
+/**
+ * 充值试算（预览）：由后端按当前生效的充值活动阶梯计算「实付 / 赠送 / 实际到账」。
+ * <p>
+ * 仅用于提交前展示，前端<b>不</b>自行复制活动规则；最终入账由后端在充值接口重新计算。
+ */
+export function previewRecharge(memberId: number, amount: number): Promise<RechargePreview> {
+  return get<RechargePreview>(`${API_PREFIX}/recharge/preview`, { memberId, amount })
 }
 
 /** 充值记录分页查询 */

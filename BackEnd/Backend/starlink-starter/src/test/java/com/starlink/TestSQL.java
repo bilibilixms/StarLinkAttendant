@@ -15,7 +15,10 @@ import java.sql.Statement;
 import static org.junit.jupiter.api.Assertions.*;
 
 @SpringBootTest
-@ActiveProfiles("dev")
+// 追加 "test" profile 仅用于提供测试专用 JWT 密钥：
+// 应用启动时 JwtSecretValidator 会强制校验密钥，缺失即无法启动。
+// 本类的断言逻辑未做任何改动（shouldConnectToDatabase 仍按原样断言连接池大小为 20）。
+@ActiveProfiles({"dev", "test"})
 class TestSQL {
 
     @Autowired

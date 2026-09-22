@@ -10,7 +10,7 @@
  * → 我的工具（5 个入口）
  */
 import { computed, ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onShow, onHide, onUnload } from '@dcloudio/uni-app'
 import AppIcon from '@/components/AppIcon.vue'
 import AppStatusBar from '@/components/AppStatusBar.vue'
 import AppTabBar from '@/components/AppTabBar.vue'
@@ -34,8 +34,52 @@ const hotelPointsText = computed(() => (user.isLogin ? '0' : '--'))
 
 const postStat = computed(() => ({ published: 0, liked: 0, collected: 0 }))
 
+/* ==================== 余额实时刷新 ==================== */
+/**
+ * 后台管理员给会员充值后，会员端必须能自动看到最新余额，不需要退出登录。
+ *
+ * 策略（项目无 WebSocket/SSE，故采用轻量轮询，与 session/current.vue 的写法保持一致）：
+ * - 进入/回到本页（onShow）→ 立即刷新一次 + 启动轮询；
+ * - 本页可见期间 → 每 4 秒刷新一次（覆盖「用户一直停留在我的页面」的场景）；
+ * - 离开本页（onHide）/ 页面销毁（onUnload）→ 停止轮询，不留后台常驻请求；
+ * - 启动前先停止，避免重复 timer；
+ * - 登录态失效（含 401 被 request 层清理）→ 立即停止轮询，不形成死循环；
+ * - 余额未变化时 store 不写回，UI 不会闪烁。
+ */
+const REFRESH_INTERVAL = 4000
+let refreshTimer: ReturnType<typeof setInterval> | null = null
+
+function stopRefreshTimer(): void {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
+}
+
+function startRefreshTimer(): void {
+  stopRefreshTimer() // 防止重复启动多个 timer
+  refreshTimer = setInterval(() => {
+    if (!user.isLogin) {
+      // 登录态已失效（例如 401 之后被统一清理）：停止轮询，避免无意义的持续请求
+      stopRefreshTimer()
+      return
+    }
+    void user.refreshMember()
+  }, REFRESH_INTERVAL)
+}
+
 onShow(() => {
-  // 后端无 summary 接口，登录后直接读本地缓存；不主动拉取
+  if (!user.isLogin) return
+  void user.refreshMember() // 场景 B：离开后回到本页，onShow 立即取最新余额
+  startRefreshTimer()
+})
+
+onHide(() => {
+  stopRefreshTimer()
+})
+
+onUnload(() => {
+  stopRefreshTimer()
 })
 
 /* ==================== 顶部三动作 ==================== */

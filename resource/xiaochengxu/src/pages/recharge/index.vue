@@ -5,7 +5,7 @@
  * Demo 阶段支付直接标记成功（后端 payment_record 已预留微信支付字段）。
  */
 import { computed, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onUnload } from '@dcloudio/uni-app'
 import AppIcon from '@/components/AppIcon.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppNavBar from '@/components/AppNavBar.vue'
@@ -16,7 +16,7 @@ import { navBack, navTo, goLogin } from '@/utils/nav'
 import { eventValue } from '@/utils/event'
 import { toast, toastSuccess, confirm } from '@/utils/ui'
 import { formatMoney, genIdempotentKey } from '@/utils/format'
-import type { RechargePlan } from '@/types/store'
+import type { RechargePlan, RechargePreview } from '@/types/store'
 
 const user = useUserStore()
 
@@ -30,9 +30,63 @@ const records = ref<Array<{ id: number; rechargeNo: string; actualAmount: number
 
 /** 实际充值金额：选了套餐用套餐金额，否则用自定义金额 */
 const amount = computed(() => selected.value?.amount ?? Number(customAmount.value || 0))
-const bonus = computed(() => selected.value?.bonus ?? 0)
-const actual = computed(() => Math.round((amount.value + bonus.value) * 100) / 100)
+
+/**
+ * 赠送与到账金额一律来自后端「充值试算」接口。
+ * 前端不复制活动阶梯规则（否则规则一改，页面就会与真实入账不一致）。
+ * 未取到试算结果时回退显示「赠送 0 / 到账=充值金额」，仅为兜底展示，
+ * 真实入账始终以提交后后端返回的金额为准。
+ */
+const preview = ref<RechargePreview | null>(null)
+const bonus = computed(() => preview.value?.bonusAmount ?? 0)
+const actual = computed(() => preview.value?.totalAmount ?? amount.value)
 const canSubmit = computed(() => amount.value > 0 && !submitting.value)
+
+let previewTimer: ReturnType<typeof setTimeout> | undefined
+
+/** 向后端试算当前金额的赠送/到账（防抖，未登录时不请求） */
+function schedulePreview(delay = 300): void {
+  if (previewTimer) clearTimeout(previewTimer)
+  previewTimer = setTimeout(() => {
+    void fetchPreview()
+  }, delay)
+}
+
+async function fetchPreview(): Promise<void> {
+  const value = amount.value
+  if (!user.isLogin || !user.member || value <= 0) {
+    preview.value = null
+    return
+  }
+  try {
+    preview.value = await rechargeApi.previewRecharge(user.member.id, value)
+  } catch {
+    // 试算失败只影响展示，不阻断充值：回退为「赠送 0、到账=充值金额」
+    preview.value = null
+  }
+}
+
+/**
+ * 幂等键：同一个「金额 + 支付方式」的请求复用同一个键，
+ * 用户改金额视为新请求 → 生成新键；提交成功 → 清空，下次充值重新生成。
+ * 这样网络重试/重复点击同一笔不会重复入账，而真正的新充值不会因复用旧键被误判为重复。
+ */
+const pendingKey = ref('')
+const pendingKeyFingerprint = ref('')
+
+function idempotentKeyFor(): string {
+  const fingerprint = `${amount.value}|${payChannel.value}`
+  if (!pendingKey.value || pendingKeyFingerprint.value !== fingerprint) {
+    pendingKey.value = genIdempotentKey('RC')
+    pendingKeyFingerprint.value = fingerprint
+  }
+  return pendingKey.value
+}
+
+function clearPendingKey(): void {
+  pendingKey.value = ''
+  pendingKeyFingerprint.value = ''
+}
 
 async function load(): Promise<void> {
   state.value = 'loading'
@@ -57,17 +111,23 @@ onLoad(() => {
   void load()
 })
 
+onUnload(() => {
+  if (previewTimer) clearTimeout(previewTimer)
+})
+
 /* ==================== 交互 ==================== */
 
 function pickPlan(p: RechargePlan): void {
   selected.value = p
   customAmount.value = ''
+  void fetchPreview()
 }
 
 function onCustomInput(e: Event): void {
   const raw = eventValue(e).replace(/[^\d.]/g, '')
   customAmount.value = raw
   if (raw) selected.value = null
+  schedulePreview()
 }
 
 async function onSubmit(): Promise<void> {
@@ -93,18 +153,21 @@ async function onSubmit(): Promise<void> {
       amount: amount.value,
       payChannel: payChannel.value,
       planId: selected.value?.id,
-      idempotentKey: genIdempotentKey('RC'),
+      // 同一笔请求复用同一个幂等键；失败重试仍用它，成功后才清空
+      idempotentKey: idempotentKeyFor(),
     })
     user.patchBalance(res.balanceAfter)
-    uni.hideLoading()
+    clearPendingKey()
     toastSuccess(`充值成功，到账 ¥${formatMoney(res.actualAmount)}`)
     void loadRecords()
     setTimeout(() => navBack(), 900)
   } catch (e) {
-    uni.hideLoading()
+    // 401/403/500/网络错误/业务错误都在此收敛，提示后结束加载
     const msg = (e as Error)?.message
     if (msg) toast(msg)
   } finally {
+    // 唯一的关闭点：无论成功、失败还是抛错，都不会永久卡在「支付中...」
+    uni.hideLoading()
     submitting.value = false
   }
 }

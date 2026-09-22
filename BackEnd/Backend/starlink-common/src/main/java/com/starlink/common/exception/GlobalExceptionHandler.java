@@ -2,6 +2,7 @@ package com.starlink.common.exception;
 
 import com.starlink.common.result.ErrorCode;
 import com.starlink.common.result.Result;
+import org.springframework.security.access.AccessDeniedException;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -36,6 +37,24 @@ public class GlobalExceptionHandler {
     public Result<Void> handleBusinessException(BusinessException e, HttpServletRequest request) {
         log.warn("业务异常 [{}]: {}", request.getRequestURI(), e.getMessage());
         return Result.fail(e.getCode(), e.getMessage());
+    }
+
+    // ==================== 授权异常 ====================
+
+    /**
+     * 越权访问（P0-4）。
+     * <p>
+     * Service 层资源归属校验（MemberAccessGuard）与方法级安全校验抛出的
+     * {@link AccessDeniedException} 会先到达 MVC 异常处理链；若不显式处理，
+     * 就会被下方的 {@code Exception.class} 兜底吞掉并返回 500 —— 语义错误且掩盖越权事实。
+     * 这里统一返回 <b>HTTP 403</b>，与 SecurityConfig 中 accessDeniedHandler
+     * （过滤器层拒绝）保持同一状态码与响应结构。
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    @ResponseStatus(HttpStatus.FORBIDDEN)
+    public Result<Void> handleAccessDenied(AccessDeniedException e, HttpServletRequest request) {
+        log.warn("越权访问被拒绝 [{}]: {}", request.getRequestURI(), e.getMessage());
+        return Result.fail(ErrorCode.FORBIDDEN);
     }
 
     // ==================== 参数校验异常 ====================

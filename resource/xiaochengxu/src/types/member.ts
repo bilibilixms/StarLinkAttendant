@@ -91,3 +91,23 @@ export interface LoginResult {
   token: string
   member: Member
 }
+
+/**
+ * 会员实时信息（对齐后端 UserInfoResponse.member，来自 GET /api/auth/info）。
+ * 用于「我的」页刷新余额：后台充值后无需退出登录即可看到最新余额。
+ * 只包含后端确实返回的字段；刷新时与本地缓存做<b>合并</b>，不覆盖登录时补齐的其它字段。
+ */
+export interface MemberProfile {
+  id: number
+  memberNo: string
+  realName: string
+  phone: string
+  levelId: number
+  levelName: string
+  balance: number
+  availablePoints: number
+  totalPoints: number
+  totalRecharge: number
+  totalConsumption: number
+  status: MemberStatus
+}

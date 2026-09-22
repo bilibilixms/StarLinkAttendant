@@ -15,6 +15,13 @@ import { getToken, clearAuth } from '@/utils/storage'
 import { toastError, showLoading, hideLoading } from '@/utils/ui'
 import { LOGIN_PAGE } from '@/utils/nav'
 import { mockRequest } from '@/mock'
+// 静态 import（勿改回动态 import()）：
+// 微信小程序（mp-weixin）构建不支持此处使用动态 import —— 编译器会把
+// import('@/stores/user') 编译成一个「字符串字面量」，运行时报
+// TypeError: "../stores/user.js".then is not a function。
+// 静态 import 会被编译为顶部 require()，且对命名导出的引用改写为「调用时属性访问」，
+// 因此即使存在 stores/user → api/auth → api/request → stores/user 的循环依赖也安全。
+import { useUserStore } from '@/stores/user'
 
 const BASE_URL = String(import.meta.env.VITE_API_BASE_URL || '').replace(/\/+$/, '')
 
@@ -35,6 +42,10 @@ function isMemberEndpoint(url: string): boolean {
     u === '/api/member/login' ||
     u === '/api/member/register' ||
     u === '/api/member/recharge' ||
+    // 充值试算（只读预览）：同样走真实后端，避免页面显示与实际入账不一致
+    u === '/api/member/recharge/preview' ||
+    // 当前登录者信息：会员端据此刷新余额（后台充值后无需重新登录即可看到）
+    u === '/api/auth/info' ||
     /^\/api\/member\/\d+\/recharge-records$/.test(u) ||
     /^\/api\/member\/\d+\/points-records$/.test(u)
   )
@@ -65,15 +76,53 @@ function buildUrl(url: string): string {
   return `${BASE_URL}${url}`
 }
 
-/** token 失效统一处理：清缓存 + 回登录页（加锁防止并发请求重复跳转） */
+/**
+ * token 失效统一处理：清登录态 + 回登录页（加锁防止并发请求重复跳转）。
+ *
+ * 必须连 store 的内存态一起清 —— 只清 storage 会让 userStore 仍然认为
+ * 「已登录」（isLogin 为 true），跳到登录页后用户点「暂不登录，先逛逛」
+ * 返回业务页会再次 401，陷入死循环。
+ *
+ * store 用动态 import 引入：静态 import 会形成
+ * stores/user → api/auth → api/request → stores/user 的循环 chunk（rollup 会告警），
+ * 且初始化顺序不可控。这里先清 storage 兜底，再补清内存态。
+ */
 function handleUnauthorized(): void {
-  clearAuth()
+  // 本函数必须是「尽力而为、绝不抛异常」的：
+  // 它是在 uni.request 的 success 回调里被同步调用的，一旦抛错，
+  // 紧随其后的 reject() 就永远不会执行 → Promise 永不 settle → 页面永久卡在「支付中...」。
+  // （历史故障：动态 import 在 mp-weixin 下报 TypeError，正是由此导致卡死。）
+  console.warn('[api] handleUnauthorized：登录态失效，清理并跳转登录页')
+
+  try {
+    clearAuth()
+  } catch (e) {
+    console.warn('[api] clearAuth 失败（忽略）', e)
+  }
+
+  try {
+    // 同步清内存态：静态 import 在 mp-weixin 下编译为顶部 require()，
+    // 此处为「调用时属性访问」，循环依赖下同样安全。
+    useUserStore().clearLocal()
+  } catch (e) {
+    // 兜底：storage 已清，内存态随下次冷启动消失
+    console.warn('[api] 清理内存登录态失败（忽略）', e)
+  }
+
   if (redirectingToLogin) return
   redirectingToLogin = true
-  toastError('登录状态已失效，请重新登录')
+  try {
+    toastError('登录状态已失效，请重新登录')
+  } catch (e) {
+    console.warn('[api] 提示失败（忽略）', e)
+  }
   setTimeout(() => {
     redirectingToLogin = false
-    uni.reLaunch({ url: LOGIN_PAGE })
+    try {
+      uni.reLaunch({ url: LOGIN_PAGE })
+    } catch (e) {
+      console.warn('[api] 跳转登录页失败（忽略）', e)
+    }
   }, 1200)
 }
 
@@ -85,6 +134,7 @@ function unwrap<T>(res: ApiResponse<T>, options: RequestOptions): T {
   const message = res?.message || '请求失败'
 
   if (code === 401) {
+    // 先保证「一定会 throw」把请求结束掉；handleUnauthorized 已保证不抛异常
     handleUnauthorized()
   } else if (!options.silent) {
     toastError(message)
@@ -95,6 +145,9 @@ function unwrap<T>(res: ApiResponse<T>, options: RequestOptions): T {
 /** 发起原始请求，返回完整信封（未拆包） */
 function rawRequest<T>(options: RequestOptions, token: string): Promise<ApiResponse<T>> {
   const { url, method = 'GET', data, header = {}, timeout = 15000 } = options
+
+  // 诊断日志：只记录方法/URL/状态码，绝不记录 Authorization、token、密码等敏感信息
+  console.log(`[api] → ${method} ${url}`)
 
   return new Promise<ApiResponse<T>>((resolve, reject) => {
     uni.request({
@@ -109,13 +162,17 @@ function rawRequest<T>(options: RequestOptions, token: string): Promise<ApiRespo
       },
       success: (res) => {
         const status = res.statusCode
+        console.log(`[api] ← ${status} ${method} ${url}`)
         if (status >= 200 && status < 300) {
           resolve(res.data as ApiResponse<T>)
           return
         }
         if (status === 401) {
-          handleUnauthorized()
+          // 关键顺序：先 reject 结束请求，再清理登录态。
+          // 若先调用 handleUnauthorized 且它抛异常，reject 将永不执行 → 页面永久 loading。
+          console.warn(`[api] 401 → handleUnauthorized：${method} ${url}`)
           reject(new Error('登录状态已失效'))
+          handleUnauthorized()
           return
         }
         // 后端未按统一结构返回（如 500 白页），给出可读提示

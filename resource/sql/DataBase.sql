@@ -6,7 +6,7 @@
 --
 -- 说明：
 --   1. 本脚本可直接在 MySQL 8.0+ 中运行，会创建 starlink_attendant 数据库
---      及全部 40 张业务表，并添加外键约束。
+--      及全部 43 张业务表，并添加外键约束。
 --   2. 若数据库已存在同名表，脚本会先执行 DROP TABLE（按依赖倒序），
 --      因此请确认后再运行。
 --   3. 所有表统一包含公共字段 id / created_at / updated_at / deleted_at / version。
@@ -58,6 +58,8 @@ DROP TABLE IF EXISTS `purchase_order`;
 DROP TABLE IF EXISTS `inventory_log`;
 DROP TABLE IF EXISTS `inventory`;
 DROP TABLE IF EXISTS `supplier`;
+DROP TABLE IF EXISTS `product_combo_item`;
+DROP TABLE IF EXISTS `product_combo`;
 DROP TABLE IF EXISTS `product`;
 DROP TABLE IF EXISTS `product_category`;
 DROP TABLE IF EXISTS `billing_record`;
@@ -69,6 +71,7 @@ DROP TABLE IF EXISTS `computer`;
 DROP TABLE IF EXISTS `tariff_plan`;
 DROP TABLE IF EXISTS `seat_area`;
 DROP TABLE IF EXISTS `member_recharge`;
+DROP TABLE IF EXISTS `member_balance_log`;
 DROP TABLE IF EXISTS `member_points_log`;
 DROP TABLE IF EXISTS `member`;
 DROP TABLE IF EXISTS `member_level`;
@@ -159,6 +162,27 @@ CREATE TABLE `member_points_log` (
     KEY `idx_biz_type` (`biz_type`),
     KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='积分流水表';
+
+-- 会员余额变动流水表
+-- 说明：金额精度与 member.balance（DECIMAL(12,2)）保持一致，
+--       避免余额超过 DECIMAL(10,2) 上限时写流水报错（MySQL 严格模式 1264 Out of range）。
+CREATE TABLE `member_balance_log` (
+    `id`              BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT  COMMENT '主键',
+    `member_id`       BIGINT UNSIGNED  NOT NULL                 COMMENT '会员ID → member.id',
+    `amount`          DECIMAL(12,2)    NOT NULL                 COMMENT '变动金额（正=增加，负=扣减）',
+    `balance_before`  DECIMAL(12,2)    NOT NULL                 COMMENT '变动前余额',
+    `balance_after`   DECIMAL(12,2)    NOT NULL                 COMMENT '变动后余额',
+    `biz_type`        TINYINT          NOT NULL                 COMMENT '业务类型：1-消费 2-退款回充 3-充值 4-手动调整',
+    `biz_id`          BIGINT UNSIGNED  DEFAULT NULL             COMMENT '关联业务单据ID',
+    `remark`          VARCHAR(255)     DEFAULT NULL             COMMENT '备注',
+    `created_at`      DATETIME(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3)            COMMENT '创建时间',
+    `updated_at`      DATETIME(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    `deleted_at`      DATETIME(3)      DEFAULT NULL             COMMENT '逻辑删除（NULL=未删除）',
+    `version`         INT UNSIGNED     NOT NULL DEFAULT 1       COMMENT '乐观锁版本号',
+    PRIMARY KEY (`id`),
+    KEY `idx_member_id` (`member_id`),
+    KEY `idx_biz` (`biz_type`, `biz_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='会员余额变动流水表';
 
 -- 充值记录表
 CREATE TABLE `member_recharge` (
@@ -433,6 +457,47 @@ CREATE TABLE `product` (
     UNIQUE KEY `uk_product_code` (`product_code`),
     KEY `idx_category_id` (`category_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='商品表';
+
+-- 套餐表
+-- 说明：original_price 由服务端按明细商品的零售价合计计算，不接受客户端传入。
+--       combo_code 为业务自定义编码，当前代码未做唯一性校验/按编码查询，
+--       故仅建普通索引列而不加唯一约束（加唯一键会把原本允许的重复编码变成运行期 500）。
+CREATE TABLE `product_combo` (
+    `id`              BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT  COMMENT '主键',
+    `combo_name`      VARCHAR(100)     NOT NULL                 COMMENT '套餐名称',
+    `combo_code`      VARCHAR(32)      DEFAULT NULL             COMMENT '套餐编码（业务自定义，不强制唯一）',
+    `description`     VARCHAR(255)     DEFAULT NULL             COMMENT '套餐描述',
+    `original_price`  DECIMAL(10,2)    NOT NULL DEFAULT 0.00    COMMENT '原价（明细商品零售价合计，服务端计算）',
+    `combo_price`     DECIMAL(10,2)    NOT NULL                 COMMENT '套餐价（优惠价）',
+    `image_url`       VARCHAR(255)     DEFAULT NULL             COMMENT '套餐图片',
+    `is_active`       TINYINT          NOT NULL DEFAULT 1       COMMENT '上下架：0-下架 1-上架',
+    `sort_order`      INT              NOT NULL DEFAULT 0       COMMENT '排序序号（越小越靠前）',
+    `created_at`      DATETIME(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3)            COMMENT '创建时间',
+    `updated_at`      DATETIME(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    `deleted_at`      DATETIME(3)      DEFAULT NULL             COMMENT '逻辑删除（NULL=未删除）',
+    `version`         INT UNSIGNED     NOT NULL DEFAULT 1       COMMENT '乐观锁版本号',
+    PRIMARY KEY (`id`),
+    KEY `idx_is_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='套餐表';
+
+-- 套餐明细表（商品快照，字段风格对齐 order_item）
+-- 说明：不加 UNIQUE(combo_id, product_id)。更新套餐时业务会先逻辑删除旧明细再插入新明细，
+--       被逻辑删除的旧行仍占用唯一键，会导致重复插入失败（与 member.uk_phone + 软删除同类陷阱）。
+CREATE TABLE `product_combo_item` (
+    `id`            BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT  COMMENT '主键',
+    `combo_id`      BIGINT UNSIGNED  NOT NULL                 COMMENT '套餐ID → product_combo.id',
+    `product_id`    BIGINT UNSIGNED  NOT NULL                 COMMENT '商品ID → product.id',
+    `product_name`  VARCHAR(100)     NOT NULL                 COMMENT '快照-商品名称',
+    `unit_price`    DECIMAL(10,2)    NOT NULL                 COMMENT '快照-商品零售价',
+    `quantity`      INT              NOT NULL DEFAULT 1       COMMENT '数量',
+    `subtotal`      DECIMAL(12,2)    NOT NULL                 COMMENT '小计 = 单价 × 数量',
+    `created_at`    DATETIME(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3)            COMMENT '创建时间',
+    `updated_at`    DATETIME(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) COMMENT '更新时间',
+    `deleted_at`    DATETIME(3)      DEFAULT NULL             COMMENT '逻辑删除（NULL=未删除）',
+    `version`       INT UNSIGNED     NOT NULL DEFAULT 1       COMMENT '乐观锁版本号',
+    PRIMARY KEY (`id`),
+    KEY `idx_combo_id` (`combo_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='套餐明细表';
 
 -- 供应商表
 CREATE TABLE `supplier` (
@@ -1019,6 +1084,11 @@ ALTER TABLE `member_points_log`
     FOREIGN KEY (`member_id`) REFERENCES `member` (`id`)
     ON DELETE RESTRICT ON UPDATE CASCADE;
 
+ALTER TABLE `member_balance_log`
+    ADD CONSTRAINT `fk_balance_log_member`
+    FOREIGN KEY (`member_id`) REFERENCES `member` (`id`)
+    ON DELETE RESTRICT ON UPDATE CASCADE;
+
 ALTER TABLE `member_recharge`
     ADD CONSTRAINT `fk_recharge_member`
     FOREIGN KEY (`member_id`) REFERENCES `member` (`id`)
@@ -1112,6 +1182,18 @@ ALTER TABLE `billing_record`
     ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- 商品与库存域外键
+-- product_combo_item.product_id 为 NOT NULL，故不能使用 ON DELETE SET NULL（MySQL 会拒绝），
+-- 采用 RESTRICT 与 member_points_log 等 NOT NULL 外键保持一致；商品在本项目中为逻辑删除。
+ALTER TABLE `product_combo_item`
+    ADD CONSTRAINT `fk_combo_item_combo`
+    FOREIGN KEY (`combo_id`) REFERENCES `product_combo` (`id`)
+    ON DELETE CASCADE ON UPDATE CASCADE;
+
+ALTER TABLE `product_combo_item`
+    ADD CONSTRAINT `fk_combo_item_product`
+    FOREIGN KEY (`product_id`) REFERENCES `product` (`id`)
+    ON DELETE RESTRICT ON UPDATE CASCADE;
+
 ALTER TABLE `product_category`
     ADD CONSTRAINT `fk_category_parent`
     FOREIGN KEY (`parent_id`) REFERENCES `product_category` (`id`)

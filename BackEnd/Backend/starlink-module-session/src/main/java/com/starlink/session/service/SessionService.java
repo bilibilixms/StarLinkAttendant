@@ -27,6 +27,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -51,6 +52,12 @@ public class SessionService {
     private final SessionTimingMapper sessionTimingMapper;
     private final ComputerMapper computerMapper;
     private final BillingRecordMapper billingRecordMapper;
+    /**
+     * 时间来源：生产为系统时钟，测试/调试可注入可推进的仿真时钟。
+     * 上机/计费的所有时间点（startTime/endTime/计时段）都取自它，
+     * 因此「时间快进」能真实驱动本模块，而计费规则本身不变。
+     */
+    private final Clock clock;
 
     /**
      * 上机（COM-02）。
@@ -98,7 +105,7 @@ public class SessionService {
         session.setMemberId(request.getMemberId());
         session.setAuthMethod(request.getAuthMethod());
         session.setTariffPlanId(request.getTariffPlanId() != null ? request.getTariffPlanId() : computer.getTariffPlanId());
-        session.setStartTime(LocalDateTime.now());
+        session.setStartTime(LocalDateTime.now(clock));
         session.setExpectedMinutes(request.getExpectedMinutes());
         session.setBilledMinutes(0);
         session.setFreeMinutes(0);
@@ -116,7 +123,7 @@ public class SessionService {
         timing.setSessionId(session.getId());
         timing.setTimingType((byte) 1); // 正常计费
         timing.setRateType((byte) 1);   // 按时
-        timing.setStartTime(LocalDateTime.now());
+        timing.setStartTime(LocalDateTime.now(clock));
         timing.setDurationMinutes(0);
         timing.setAmount(BigDecimal.ZERO);
 
@@ -147,7 +154,7 @@ public class SessionService {
             throw new BusinessException(ErrorCode.SESSION_ALREADY_ENDED);
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
 
         // 1. 结束当前计时段
         endCurrentTiming(session.getId(), now);
@@ -213,7 +220,7 @@ public class SessionService {
             throw new BusinessException(ErrorCode.SESSION_ALREADY_ENDED.getCode(), "会话非上机中状态，无法暂停");
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
 
         // 1. 结束当前计费段
         endCurrentTiming(session.getId(), now);
@@ -250,7 +257,7 @@ public class SessionService {
             throw new BusinessException(ErrorCode.SESSION_ALREADY_ENDED.getCode(), "会话非临时下机状态，无法恢复");
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
 
         // 1. 结束临时下机段，计算暂停时长
         List<SessionTiming> timings = sessionTimingMapper.selectList(
@@ -324,7 +331,7 @@ public class SessionService {
             computerMapper.updateById(targetComputer);
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
 
         // 2. 结束当前计费段
         endCurrentTiming(session.getId(), now);
@@ -371,7 +378,7 @@ public class SessionService {
             throw new BusinessException(ErrorCode.SESSION_ALREADY_ENDED);
         }
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
 
         // 1. 结束当前计时段
         endCurrentTiming(session.getId(), now);
@@ -635,7 +642,7 @@ public class SessionService {
         if (timings.isEmpty()) return;
 
         // 计算总分钟数
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         int totalMinutes = 0;
         for (SessionTiming t : timings) {
             int mins = (t.getEndTime() != null && t.getDurationMinutes() != null)
@@ -711,7 +718,7 @@ public class SessionService {
                         .eq(SessionTiming::getSessionId, sessionId)
                         .eq(SessionTiming::getTimingType, 1));
 
-        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime now = LocalDateTime.now(clock);
         int total = 0;
         for (SessionTiming t : timings) {
             if (t.getEndTime() != null && t.getDurationMinutes() != null) {

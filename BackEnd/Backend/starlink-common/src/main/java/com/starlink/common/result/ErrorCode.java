@@ -27,6 +27,8 @@ public enum ErrorCode {
     UNAUTHORIZED(401, "未认证或 Token 已过期"),
     FORBIDDEN(403, "权限不足"),
     NOT_FOUND(404, "资源不存在"),
+    /** 并发修改冲突：乐观锁/行锁校验失败，客户端可重试 */
+    CONFLICT(409, "数据已被并发修改，请重试"),
     INTERNAL_ERROR(500, "服务器内部错误"),
 
     // ==================== 认证/权限 (10xxx) ====================
@@ -41,6 +43,10 @@ public enum ErrorCode {
     MEMBER_NO_EXISTS(20001, "会员编号已存在"),
     BALANCE_INSUFFICIENT(20002, "余额不足"),
     MEMBER_BLACKLISTED(20003, "会员已被列入黑名单"),
+    /** 手机号被已注销（软删除）账号占用：匿名注册不得恢复该账号，需走受认证的账户恢复流程。 */
+    MEMBER_PHONE_RECLAIM_FORBIDDEN(20004, "该手机号存在已注销的历史账号，无法直接注册，请联系门店客服处理"),
+    /** 充值请求重复：同一幂等键的并发请求，已回滚，未重复入账 */
+    RECHARGE_DUPLICATE(20005, "充值请求重复，请勿重复提交"),
 
     // ==================== 上机模块 (30xxx) ====================
     SEAT_OCCUPIED(30001, "该机位已被占用"),

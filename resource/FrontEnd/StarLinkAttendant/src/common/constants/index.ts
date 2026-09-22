@@ -169,3 +169,50 @@ export const RESERVATION_STATUS_MAP: Record<number, string> = {
   [RESERVATION_STATUS.CANCELLED]: '已取消',
   [RESERVATION_STATUS.NO_SHOW]: '超时未到',
 }
+
+/* ==================== 收银域（取值以 DataBase.sql 的列注释为准） ==================== */
+
+/** 订单类型（orders.order_type） */
+export const ORDER_TYPE_MAP: Record<number, string> = {
+  1: '商品销售',
+  2: '上机结算',
+  3: '充值',
+  4: '套餐',
+}
+
+/** 订单状态（orders.status） */
+export const ORDER_STATUS_MAP: Record<number, string> = {
+  0: '待支付',
+  1: '已支付',
+  2: '部分退款',
+  3: '已退款',
+  4: '已取消',
+}
+
+/** 退款类型（refund_record.refund_type） */
+export const REFUND_TYPE_MAP: Record<number, string> = {
+  1: '全额退款',
+  2: '部分退款',
+}
+
+/** 退款状态（refund_record.status） */
+export const REFUND_STATUS_MAP: Record<number, string> = {
+  0: '待审核',
+  1: '已审核',
+  2: '已完成',
+  3: '已拒绝',
+}
+
+/** 日结状态（daily_settlement.status） */
+export const SETTLEMENT_STATUS_MAP: Record<number, string> = {
+  0: '待确认',
+  1: '已确认',
+  2: '已归档',
+}
+
+/** 班次状态（cashier_shift.status） */
+export const SHIFT_STATUS_MAP: Record<number, string> = {
+  0: '进行中',
+  1: '已结班',
+  2: '已审核',
+}

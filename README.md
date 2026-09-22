@@ -59,7 +59,7 @@ StarLinkAttendant/
 
 ---
 
-## 四、本地运行（三步启动）
+## 四、本地运行（五步启动）
 
 ### 环境准备
 
@@ -104,9 +104,55 @@ spring:
 
 > 如果 MySQL 不在本机或端口不是 3306，同步修改 `url` 中的地址和端口。
 
-### 第 3 步：启动后端
+### 第 3 步：设置 JWT_SECRET（必设）
 
-确保 `JAVA_HOME` 指向 **JDK 17**（这是最常见的启动失败原因），然后：
+后端使用 JWT 做登录鉴权，签名密钥**必须通过外部配置提供**，仓库中**不包含任何真实密钥**，且**没有默认值**。
+
+如果不设置，应用会在**启动阶段直接失败**并给出明确提示（这是刻意设计：避免"启动成功、登录时才 500"）：
+
+```
+JWT 配置校验失败：JWT 签名密钥未配置（jwt.secret 为空）。
+请通过环境变量 JWT_SECRET 提供长度不少于 32 字节的随机密钥后重新启动……
+```
+
+要求：
+
+- 长度 **≥ 32 字节**（当前算法 HS256 的密钥强度要求）；
+- 不得使用示例值/弱值（如 `secret`、`123456`、`change-me`、`starlink`、`dev-secret` 等，启动校验会拒绝）；
+- **开发环境与生产环境必须使用各自独立、互不相同的密钥**；
+- 生成方式举例：`openssl rand -base64 48`，或用你自己的密码管理器生成。
+
+设置为**环境变量** `JWT_SECRET`（配置文件里写的是 `jwt.secret: ${JWT_SECRET:}`）：
+
+**Windows PowerShell**（当前会话有效）
+```powershell
+$env:JWT_SECRET = "<your-random-secret>"
+```
+
+**Windows CMD**（当前会话有效）
+```cmd
+set JWT_SECRET=<your-random-secret>
+```
+
+**Windows 永久设置**（新建命令行窗口后生效）
+```powershell
+[Environment]::SetEnvironmentVariable("JWT_SECRET", "<your-random-secret>", "User")
+```
+
+**Linux / macOS / WSL**（当前会话有效）
+```bash
+export JWT_SECRET='<your-random-secret>'
+```
+
+> 上例中的 `<your-random-secret>` 是**占位符**，必须替换为真实的随机密钥。
+> 直接粘贴占位符（含 `<` `>` 字符）会被启动校验识别为"未替换的占位符"并拒绝启动。
+>
+> 环境变量在 IDE 中启动时，需在运行配置（如 IntelliJ Run/Debug Configurations）的
+> Environment variables 里同样设置 `JWT_SECRET`。
+
+### 第 4 步：启动后端
+
+确保 `JAVA_HOME` 指向 **JDK 17**（这是最常见的启动失败原因），且已按第 3 步设置 `JWT_SECRET`，然后：
 
 ```bash
 cd BackEnd/Backend
@@ -122,7 +168,7 @@ mvn -pl starlink-starter spring-boot:run
 也可以直接用 IDEA 打开 `BackEnd/Backend`（Maven 工程），确认 Project SDK = 17，运行启动类：
 `starlink-starter/src/main/java/com/starlink/StarLinkAttendantApplication.java`
 
-### 第 4 步：启动前端
+### 第 5 步：启动前端
 
 ```bash
 cd resource/FrontEnd/StarLinkAttendant
@@ -175,6 +221,11 @@ JDK 版本不对。本项目必须使用 **JDK 17**。命令行启动先设置 `
 
 **6. 进行中会话的数据为什么一直在变？**
 这是正常现象：后端计费定时任务每分钟对进行中会话自动计费并更新余额，用于演示实时计费效果。重置数据后重启后端即可恢复初始状态。
+
+**7. 启动直接失败，提示「JWT 配置校验失败：JWT 签名密钥未配置」？**
+没有设置 `JWT_SECRET`。这是**刻意设计**：密钥缺失时应用拒绝启动，而不是"启动成功、登录时才 500"。
+按「第 3 步」设置环境变量 `JWT_SECRET`（长度 ≥ 32 字节）后重启即可。
+启动日志只会输出算法与密钥长度，**不会输出密钥内容**。
 
 ---
 

@@ -4,7 +4,7 @@ import type {
   MemberItem, MemberQuery, MemberRegisterRequest, MemberUpdateRequest,
   LevelItem, LevelCreateRequest, LevelUpdateRequest,
   PointsRecordItem,
-  RechargeRecordItem, RechargeRequest,
+  RechargeRecordItem, RechargeRequest, RechargePreview,
   BlacklistItem,
 } from '../types'
 
@@ -50,6 +50,16 @@ export function getPointsRecords(memberId: number, params: PageRequest & { bizTy
 // ========== 充值管理 ==========
 export function createRecharge(data: RechargeRequest) {
   return request.post<any, { data: RechargeRecordItem }>('/api/member/recharge', data)
+}
+
+/**
+ * 充值试算（预览）：由后端按生效的充值活动阶梯返回「实付 / 赠送 / 实际到账」。
+ * 仅供展示；最终入账由 createRecharge 在服务端重新计算。
+ */
+export function getRechargePreview(memberId: number, amount: number) {
+  return request.get<any, { data: RechargePreview }>('/api/member/recharge/preview', {
+    params: { memberId, amount },
+  })
 }
 export function getRechargeRecords(memberId: number, params: PageRequest & { startTime?: string; endTime?: string; status?: number }) {
   return request.get<any, { data: PageResult<RechargeRecordItem> }>(`/api/member/${memberId}/recharge-records`, { params })

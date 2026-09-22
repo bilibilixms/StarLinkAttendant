@@ -41,9 +41,10 @@ const refreshActiveData = async () => {
     // 仅更新活跃会话的计费时长
     for (const active of activeSessions) {
       const idx = tableData.value.findIndex(t => t.id === active.id)
-      if (idx !== -1) {
-        tableData.value[idx].billedMinutes = active.billedMinutes
-        tableData.value[idx].totalAmount = active.totalAmount
+      const row = idx === -1 ? undefined : tableData.value[idx]
+      if (row) {
+        row.billedMinutes = active.billedMinutes
+        row.totalAmount = active.totalAmount
       }
     }
   } catch { /* ignore */ }

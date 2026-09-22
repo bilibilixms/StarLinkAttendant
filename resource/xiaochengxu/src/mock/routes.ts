@@ -6,7 +6,7 @@
  * 其余业务（订单/商品/上机/活动等）后端尚未实现，仍走本地 mock。
  */
 import { API_PREFIX } from '@/config'
-import { db, mutate } from './db'
+import { db, isLoggedIn, mutate } from './db'
 import * as seed from './seed'
 import type { CurrentSession, SelfEndResult } from '@/types/session'
 import type { Order, OrderItem } from '@/types/order'
@@ -203,7 +203,7 @@ export const routes: MockRoute[] = [
     path: `${P}/session/current`,
     auth: true,
     handler: () => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       return buildCurrentSession(db())
     },
   },
@@ -212,7 +212,7 @@ export const routes: MockRoute[] = [
     path: `${P}/session/scan-start`,
     auth: true,
     handler: (ctx) => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       const qr = String(ctx.body.qrContent ?? '')
       // 支持两种二维码：JSON 串 或 简单串 "storeId-areaId-computerId"
       let computerId = Number(ctx.body.computerId ?? 0)
@@ -294,7 +294,7 @@ export const routes: MockRoute[] = [
     path: `${P}/session/self-end`,
     auth: true,
     handler: () => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       return endSession()
     },
   },
@@ -303,7 +303,7 @@ export const routes: MockRoute[] = [
     path: `${P}/session/remote-end`,
     auth: true,
     handler: () => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       return endSession()
     },
   },
@@ -312,7 +312,7 @@ export const routes: MockRoute[] = [
     path: `${P}/session/pause`,
     auth: true,
     handler: () => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       return mutate((s) => {
         if (!s.currentSession) throw new Error('当前没有进行中的会话')
         s.currentSession.status = 1
@@ -325,7 +325,7 @@ export const routes: MockRoute[] = [
     path: `${P}/session/resume`,
     auth: true,
     handler: () => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       return mutate((s) => {
         if (!s.currentSession) throw new Error('当前没有进行中的会话')
         s.currentSession.status = 0
@@ -338,7 +338,7 @@ export const routes: MockRoute[] = [
     path: `${P}/session/records`,
     auth: true,
     handler: (ctx) => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       return paginate(db().sessionRecords, ctx.query)
     },
   },
@@ -349,7 +349,7 @@ export const routes: MockRoute[] = [
     path: `${P}/reservations`,
     auth: true,
     handler: (ctx) => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       let list = db().reservations
       if (ctx.query.status !== undefined && ctx.query.status !== '') {
         list = list.filter((r) => r.status === Number(ctx.query.status))
@@ -362,7 +362,7 @@ export const routes: MockRoute[] = [
     path: `${P}/reservations`,
     auth: true,
     handler: (ctx) => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       const startTime = String(ctx.body.startTime ?? '')
       const endTime = String(ctx.body.endTime ?? '')
       if (!startTime || !endTime) throw new Error('请选择预约时间')
@@ -419,7 +419,7 @@ export const routes: MockRoute[] = [
     path: `${P}/reservations/:id/cancel`,
     auth: true,
     handler: (ctx) => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       return mutate((s) => {
         const r = s.reservations.find((x) => x.id === Number(ctx.params.id))
         if (!r) throw new Error('预约不存在')
@@ -473,7 +473,7 @@ export const routes: MockRoute[] = [
     path: `${P}/orders`,
     auth: true,
     handler: (ctx) => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       let list = db().orders
       const tab = String(ctx.query.tab ?? 'all')
       if (tab === 'unpaid') list = list.filter((o) => o.status === 0)
@@ -488,7 +488,7 @@ export const routes: MockRoute[] = [
     path: `${P}/orders/:id`,
     auth: true,
     handler: (ctx) => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       const o = db().orders.find((x) => x.id === Number(ctx.params.id))
       if (!o) throw new Error('订单不存在')
       return o
@@ -499,7 +499,7 @@ export const routes: MockRoute[] = [
     path: `${P}/orders`,
     auth: true,
     handler: (ctx) => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       const items = (ctx.body.items ?? []) as Array<{ productId: number; quantity: number }>
       if (!items.length) throw new Error('购物车是空的')
       if (!ctx.body.idempotentKey) throw new Error('缺少幂等键，请重试')
@@ -573,7 +573,7 @@ export const routes: MockRoute[] = [
     path: `${P}/orders/:id/pay`,
     auth: true,
     handler: (ctx) => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       const payChannel = String(ctx.body.payChannel ?? 'balance')
       return mutate((s) => {
         const o = s.orders.find((x) => x.id === Number(ctx.params.id))
@@ -639,7 +639,7 @@ export const routes: MockRoute[] = [
     path: `${P}/orders/:id/cancel`,
     auth: true,
     handler: (ctx) => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       return mutate((s) => {
         const o = s.orders.find((x) => x.id === Number(ctx.params.id))
         if (!o) throw new Error('订单不存在')
@@ -655,7 +655,7 @@ export const routes: MockRoute[] = [
     path: `${P}/orders/:id/refund`,
     auth: true,
     handler: (ctx) => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       return mutate((s) => {
         const o = s.orders.find((x) => x.id === Number(ctx.params.id))
         if (!o) throw new Error('订单不存在')
@@ -681,7 +681,7 @@ export const routes: MockRoute[] = [
     path: `${P}/consume-records`,
     auth: true,
     handler: (ctx) => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       let list = db().consumeRecords
       const type = String(ctx.query.type ?? '')
       if (type) list = list.filter((r) => r.type === type)
@@ -695,7 +695,7 @@ export const routes: MockRoute[] = [
     path: `${P}/coupons/mine`,
     auth: true,
     handler: (ctx) => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       let list = db().coupons
       if (ctx.query.status !== undefined && ctx.query.status !== '') {
         list = list.filter((c) => c.status === Number(ctx.query.status))
@@ -724,7 +724,7 @@ export const routes: MockRoute[] = [
     path: `${P}/coupons/receive`,
     auth: true,
     handler: (ctx) => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       const templateId = Number(ctx.body.templateId ?? 0)
       const tpl = seed.seedCouponTemplates.find((t) => t.id === templateId)
       if (!tpl) throw new Error('优惠券不存在')
@@ -795,7 +795,7 @@ export const routes: MockRoute[] = [
     path: `${P}/games/tasks/:id/join`,
     auth: true,
     handler: (ctx) => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       return mutate((s) => {
         const t = s.tasks.find((x) => x.id === Number(ctx.params.id))
         if (!t) throw new Error('任务不存在或已结束')
@@ -840,7 +840,7 @@ export const routes: MockRoute[] = [
     path: `${P}/community/posts/:id/like`,
     auth: true,
     handler: (ctx) => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       return mutate((s) => {
         const p = s.posts.find((x) => x.id === Number(ctx.params.id))
         if (!p) throw new Error('帖子不存在')
@@ -855,7 +855,7 @@ export const routes: MockRoute[] = [
     path: `${P}/community/posts/:id/collect`,
     auth: true,
     handler: (ctx) => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       return mutate((s) => {
         const p = s.posts.find((x) => x.id === Number(ctx.params.id))
         if (!p) throw new Error('帖子不存在')
@@ -870,7 +870,7 @@ export const routes: MockRoute[] = [
     path: `${P}/community/posts/:id/comments`,
     auth: true,
     handler: (ctx) => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       const content = String(ctx.body.content ?? '').trim()
       if (!content) throw new Error('评论内容不能为空')
       if (content.length > 200) throw new Error('评论最多 200 字')
@@ -907,7 +907,7 @@ export const routes: MockRoute[] = [
     path: `${P}/community/teams/:id/join`,
     auth: true,
     handler: (ctx) => {
-      if (!db().loggedIn) needLogin()
+      if (!isLoggedIn()) needLogin()
       return mutate((s) => {
         const t = s.teams.find((x) => x.id === Number(ctx.params.id))
         if (!t) throw new Error('队伍不存在或已解散')
