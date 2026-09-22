@@ -37,12 +37,13 @@ public interface MemberMapper extends BaseMapper<Member> {
      * 恢复已注销会员：仅解除软删除，保留原编号、身份与全部资产。
      * <p>
      * 手写 SQL 绕过 {@code @TableLogic} 的自动 {@code deleted_at IS NULL} 条件。
+     * 调用方需先从 {@code member} 的字段取各业务值；实体 {@code deletedAt} 置 {@code NULL}。
      * <b>仅供受认证的账户恢复流程调用</b>，匿名注册路径严禁调用。
      *
-     * @param id 已注销会员主键
+     * @param member 携带待恢复数据的会员对象（deletedAt 置 NULL）
      * @return 影响行数（0 = 不存在或未处于已注销状态）
      */
-    int reviveDeletedMember(@Param("id") Long id);
+    int reviveDeletedMember(Member member);
 
     Member selectByMemberNo(@Param("memberNo") String memberNo);
 

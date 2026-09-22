@@ -8,6 +8,7 @@ import com.starlink.common.util.PageQuery;
 import com.starlink.common.util.PageResult;
 import com.starlink.member.dto.req.RechargeRequest;
 import com.starlink.member.dto.resp.RechargeRecordResponse;
+import com.starlink.member.dto.resp.RechargePreviewResponse;
 import com.starlink.member.entity.Member;
 import com.starlink.member.entity.MemberLevel;
 import com.starlink.member.entity.MemberRecharge;
@@ -113,6 +114,29 @@ public class RechargeService {
         response.setPaymentMethodLabel(getPaymentMethodLabel(response.getPaymentMethod()));
         response.setStatusLabel(getStatusLabel(response.getStatus()));
         return response;
+    }
+
+    /**
+     * 充值试算（预览）：校验会员后按充值金额计算「实付 / 赠送 / 实际到账」。
+     * <p>
+     * 只读接口，不做任何写入；campaignId 对应营销活动赠送，当前无活动配置时为 null。
+     */
+    public RechargePreviewResponse preview(Long memberId, BigDecimal amount) {
+        if (memberId == null || amount == null || amount.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR.getCode(), "金额不能为负");
+        }
+        Member member = memberMapper.selectById(memberId);
+        if (member == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND.getCode(), "会员不存在");
+        }
+        BigDecimal bonusAmount = calculateBonus(memberId, amount);
+        RechargePreviewResponse resp = new RechargePreviewResponse();
+        resp.setMemberId(memberId);
+        resp.setRechargeAmount(amount);
+        resp.setBonusAmount(bonusAmount);
+        resp.setTotalAmount(amount.add(bonusAmount));
+        resp.setCampaignId(null);
+        return resp;
     }
 
     private BigDecimal calculateBonus(Long memberId, BigDecimal amount) {
