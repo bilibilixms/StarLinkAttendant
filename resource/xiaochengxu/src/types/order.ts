@@ -51,6 +51,11 @@ export interface Order {
 export interface CreateOrderItem {
   productId: number
   quantity: number
+  /** 下单快照：便于 mock 池缺失时兜底结算（真实后端下单时可不传） */
+  price?: number
+  name?: string
+  cover?: string
+  spec?: string
 }
 
 export interface CreateOrderRequest {

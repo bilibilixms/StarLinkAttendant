@@ -189,7 +189,8 @@ function goProductList(): void {
 }
 
 function onProductTap(p: Product): void {
-  navTo(`/pages/product/detail?id=${p.id}`)
+  // 热门商品为真实后端商品，跳转详情页（真实后端详情），详情内可加购/下单（下单走 mock）
+  navTo(`/pages/product/detail?id=${p.id}&source=hot`)
 }
 
 function onStoreTap(s: Store): void {

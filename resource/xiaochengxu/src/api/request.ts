@@ -44,7 +44,13 @@ function isMemberEndpoint(url: string): boolean {
     u === '/api/member/recharge' ||
     // 充值试算（只读预览）：同样走真实后端，避免页面显示与实际入账不一致
     u === '/api/member/recharge/preview' ||
-    // 当前登录者信息：会员端据此刷新余额（后台充值后无需重新登录即可看到）
+    // 小程序商品：自助点餐列表/分类/详情 + 热门列表/热门详情，均穿透 mock 直达真实后端商品表
+    u === '/api/member/products' ||
+    u === '/api/member/products/categories' ||
+    /^\/api\/member\/products\/\d+$/.test(u) ||
+    u === '/api/member/products/hot' ||
+    /^\/api\/member\/products\/hot\/\d+$/.test(u) ||
+    // 当前登录者信息：走真实后端（返回实际登录的会员）
     u === '/api/auth/info' ||
     /^\/api\/member\/\d+\/recharge-records$/.test(u) ||
     /^\/api\/member\/\d+\/points-records$/.test(u)
@@ -202,8 +208,8 @@ export function request<T = unknown>(options: RequestOptions): Promise<T> {
 
   const token = options.auth === false ? '' : getToken()
 
-  // 会员端真实接口穿透 mock 层，直接打后端
-  const useMock = USE_MOCK && !isMemberEndpoint(options.url)
+  // 会员端真实接口穿透 mock 层，直接打后端（isMemberEndpoint 命中或显式 bypassMock）
+  const useMock = USE_MOCK && !isMemberEndpoint(options.url) && !options.bypassMock
 
   const task: Promise<ApiResponse<T>> = useMock
     ? mockRequest<T>({

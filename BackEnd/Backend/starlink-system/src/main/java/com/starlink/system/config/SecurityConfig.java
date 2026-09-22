@@ -55,6 +55,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/member/*/recharge-records",
                                 "/api/member/*/points-records").authenticated()
                         .requestMatchers(HttpMethod.PUT, "/api/member/*").authenticated()
+                        // 小程序自助点餐/热门商品：商品浏览类 GET 公开（列表/分类/详情/热门，未登录可见）
+                        // 注意：须在 "/api/member/**" 通配之前声明
+                        .requestMatchers(HttpMethod.GET, "/api/member/products/**").permitAll()
 
                         // ---------- 系统管理：仅超级管理员 ----------
                         .requestMatchers("/api/system/**").hasRole("super_admin")

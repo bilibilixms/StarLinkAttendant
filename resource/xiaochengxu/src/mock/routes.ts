@@ -6,7 +6,7 @@
  * 其余业务（订单/商品/上机/活动等）后端尚未实现，仍走本地 mock。
  */
 import { API_PREFIX } from '@/config'
-import { db, isLoggedIn, mutate } from './db'
+import { db, isLoggedIn, mutate, findOrderProduct } from './db'
 import * as seed from './seed'
 import type { CurrentSession, SelfEndResult } from '@/types/session'
 import type { Order, OrderItem } from '@/types/order'
@@ -500,25 +500,38 @@ export const routes: MockRoute[] = [
     auth: true,
     handler: (ctx) => {
       if (!isLoggedIn()) needLogin()
-      const items = (ctx.body.items ?? []) as Array<{ productId: number; quantity: number }>
+      const items = (ctx.body.items ?? []) as Array<{
+        productId: number
+        quantity: number
+        /** 快照价（会员价优先），便于 mock 池缺失时兜底结算 */
+        price?: number
+        name?: string
+        cover?: string
+        spec?: string
+      }>
       if (!items.length) throw new Error('购物车是空的')
       if (!ctx.body.idempotentKey) throw new Error('缺少幂等键，请重试')
 
       const detailItems: OrderItem[] = []
       let total = 0
       for (const it of items) {
-        const p = seed.seedProducts.find((x) => x.id === Number(it.productId))
-        if (!p) throw new Error(`商品不存在：${it.productId}`)
-        if (p.stock < it.quantity) throw new Error(`「${p.name}」库存不足，仅剩 ${p.stock} 件`)
-        const price = p.memberPrice ?? p.price
+        const p = findOrderProduct(Number(it.productId))
+        // 默认商品无限量：mock 池查不到时按购物车快照价格结算、不阻断下单
+        if (p && p.stock < it.quantity) {
+          throw new Error(`「${p.name}」库存不足，仅剩 ${p.stock} 件`)
+        }
+        const price = p ? p.memberPrice ?? p.price : Number(it.price) || 0
+        const name = p ? p.name : it.name || `商品${it.productId}`
+        const cover = p ? p.cover : it.cover ?? ''
+        const spec = p ? p.spec : it.spec ?? null
         const amount = round2(price * it.quantity)
         total = round2(total + amount)
         detailItems.push({
-          id: p.id,
-          productId: p.id,
-          productName: p.name,
-          cover: p.cover,
-          spec: p.spec,
+          id: it.productId,
+          productId: it.productId,
+          productName: name,
+          cover,
+          spec,
           price,
           quantity: it.quantity,
           amount,
@@ -595,7 +608,7 @@ export const routes: MockRoute[] = [
 
         // 扣库存 + 加销量
         for (const it of o.items) {
-          const p = seed.seedProducts.find((x) => x.id === it.productId)
+          const p = findOrderProduct(it.productId)
           if (p) {
             p.stock = Math.max(0, p.stock - it.quantity)
             p.sales += it.quantity

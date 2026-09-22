@@ -21,6 +21,8 @@ const product = ref<Product | null>(null)
 const state = ref<'loading' | 'empty' | 'error' | 'success'>('loading')
 const quantity = ref(1)
 const productId = ref(0)
+/** 来源：'hot' 表示首页热门商品（真实后端）；缺省走自助点餐（mock） */
+const source = ref<'hot' | ''>('')
 
 const price = computed(() => product.value?.memberPrice ?? product.value?.price ?? 0)
 const images = computed(() => {
@@ -33,7 +35,10 @@ const soldOut = computed(() => (product.value?.stock ?? 0) <= 0)
 async function load(id: number): Promise<void> {
   state.value = 'loading'
   try {
-    product.value = await productApi.getProductDetail(id)
+    product.value =
+      source.value === 'hot'
+        ? await productApi.getHotProductDetail(id)
+        : await productApi.getProductDetail(id)
     state.value = 'success'
   } catch {
     state.value = 'error'
@@ -42,6 +47,7 @@ async function load(id: number): Promise<void> {
 
 onLoad((query) => {
   productId.value = Number(query?.id ?? 0)
+  source.value = query?.source === 'hot' ? 'hot' : ''
   if (!productId.value) {
     state.value = 'error'
     return
@@ -58,14 +64,22 @@ function step(delta: number): void {
   quantity.value = Math.min(max, Math.max(1, quantity.value + delta))
 }
 
+/** 防重复快速点击：限定窗口内不重复加购，避免一次点按被识别成两次 */
+let lastAddAt = 0
 function onAddCart(): void {
   if (!product.value || soldOut.value) return
+  const now = Date.now()
+  if (now - lastAddAt < 400) return
+  lastAddAt = now
   const ok = cart.add(product.value, quantity.value)
   toast(ok ? `已加入购物车 ×${quantity.value}` : '库存不足')
 }
 
 function onBuyNow(): void {
   if (!product.value || soldOut.value) return
+  const now = Date.now()
+  if (now - lastAddAt < 400) return
+  lastAddAt = now
   const ok = cart.add(product.value, quantity.value)
   if (!ok) {
     toast('库存不足')

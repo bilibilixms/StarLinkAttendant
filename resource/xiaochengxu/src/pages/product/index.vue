@@ -103,11 +103,16 @@ function qtyOf(p: Product): number {
   return cart.quantityOf(p.id)
 }
 
+/** 防重复快速点击：限定窗口内不重复加购，避免一次点按被识别成两次 */
+let lastAddAt = 0
 function onAdd(p: Product): void {
   if (p.stock <= 0) {
     toast('该商品已售罄')
     return
   }
+  const now = Date.now()
+  if (now - lastAddAt < 400) return
+  lastAddAt = now
   const ok = cart.add(p, 1)
   if (!ok) toast(`库存不足，最多可加 ${p.stock} 件`)
 }

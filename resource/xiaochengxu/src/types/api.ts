@@ -40,6 +40,8 @@ export interface RequestOptions {
   auth?: boolean
   /** 超时毫秒，默认 15000 */
   timeout?: number
+  /** 强制穿透 mock 层打真实后端（即使 USE_MOCK=true），用于「先试后端、失败回退 mock」场景 */
+  bypassMock?: boolean
 }
 
 /** 三态：加载中 / 空 / 错误，页面统一用它驱动 UI */

@@ -14,11 +14,13 @@ import { couponApi, orderApi } from '@/api'
 import { useCartStore } from '@/stores/cart'
 import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
+import { registerMockProducts } from '@/mock/db'
 import { navBack, navTo, goLogin } from '@/utils/nav'
 import { eventValue } from '@/utils/event'
 import { toast, toastSuccess } from '@/utils/ui'
 import { formatMoney, genIdempotentKey } from '@/utils/format'
 import type { Coupon } from '@/types/coupon'
+import type { CartItem, Product } from '@/types/product'
 
 const cart = useCartStore()
 const app = useAppStore()
@@ -93,6 +95,27 @@ function openCouponSheet(): void {
   showCouponSheet.value = true
 }
 
+/**
+ * 把购物车商品快照注册进 mock 下单池。
+ * 避免「购物车是上次会话残留、mock 池为空」时 mock 下单校验报「商品不存在」。
+ */
+function ensureOrderPool(): void {
+  const products: Product[] = cart.items.map((i: CartItem) => ({
+    id: i.productId,
+    name: i.name,
+    categoryId: 0,
+    type: 2,
+    price: i.price,
+    spec: i.spec ?? null,
+    unit: '件',
+    stock: i.stock,
+    sales: 0,
+    cover: i.cover,
+    status: 1,
+  }))
+  registerMockProducts(products)
+}
+
 function pickCoupon(id: number): void {
   selectedCouponId.value = selectedCouponId.value === id ? 0 : id
   showCouponSheet.value = false
@@ -122,8 +145,16 @@ async function onSubmit(): Promise<void> {
   submitting.value = true
   uni.showLoading({ title: '提交中...', mask: true })
   try {
+    ensureOrderPool()
     const created = await orderApi.createOrder({
-      items: cart.items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+      items: cart.items.map((i) => ({
+        productId: i.productId,
+        quantity: i.quantity,
+        price: i.price,
+        name: i.name,
+        cover: i.cover,
+        spec: i.spec,
+      })),
       couponId: selectedCouponId.value || undefined,
       seatNo: app.currentSession?.seatNo,
       remark: remark.value,
@@ -132,6 +163,12 @@ async function onSubmit(): Promise<void> {
 
     // Demo 阶段后端直接标记支付成功，后续替换为微信支付
     await orderApi.payOrder(created.orderId, payChannel.value)
+
+    // 余额支付：立即扣减本地余额（mock 支付扣的是 mock 会员，前端 store 需同步）
+    if (payChannel.value === 'balance') {
+      const newBalance = Math.round((user.balance - payable.value) * 100) / 100
+      user.patchBalance(newBalance)
+    }
 
     cart.clear()
     uni.hideLoading()

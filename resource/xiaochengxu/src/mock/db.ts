@@ -19,6 +19,7 @@ import type { GameTask } from '@/types/game'
 import type { Post, TeamRecruit } from '@/types/community'
 import type { Reservation } from '@/types/reservation'
 import type { PointsRecord, RechargeRecord } from '@/types/store'
+import type { Product } from '@/types/product'
 import * as seed from './seed'
 
 export interface MockState {
@@ -117,4 +118,30 @@ export function resetMockDB(): void {
  */
 export function isLoggedIn(): boolean {
   return !!getToken()
+}
+
+/* ==================== 真实热门商品 → mock 下单池 ==================== */
+/**
+ * 小程序首页「热门商品」来自真实后端 product 表，其 id 不在 mock 种子库
+ * （seed.seedProducts，id 为 101~503）。而自助点餐的下单/支付/退款是本地 mock 流程，
+ * 直接在 seed.seedProducts 里按 id 查会报「商品不存在」。这里维护一个独立的
+ * mock 下单池，把真实热门商品注册进去，下单 mock 流程既能校验到价格/库存，
+ * 又不会污染自助点餐的那个 mock 商品菜单。
+ */
+let orderExtras: Product[] = []
+
+/** 将真实热门商品注册进 mock 下单池（重复注册以最新为准） */
+export function registerMockProducts(list: Product[]): void {
+  for (const raw of list) {
+    // 真实商品无库存字段，注册时给一个充足占位值，避免 mock 下单误判「库存不足」
+    const p: Product = { ...raw, stock: Math.max(1, raw.stock || 9999) }
+    const idx = orderExtras.findIndex((x) => x.id === p.id)
+    if (idx >= 0) orderExtras[idx] = p
+    else orderExtras.push(p)
+  }
+}
+
+/** 下单/支付校验商品：先查 mock 下单池（真实热门商品），查不到再回落 mock 菜单 */
+export function findOrderProduct(id: number): Product | undefined {
+  return orderExtras.find((x) => x.id === id) ?? seed.seedProducts.find((x) => x.id === id)
 }
