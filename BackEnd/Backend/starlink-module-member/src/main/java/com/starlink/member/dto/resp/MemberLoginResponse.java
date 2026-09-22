@@ -24,5 +24,7 @@ public class MemberLoginResponse {
 
     private Long totalPoints;
 
+    private Integer growthValue;
+
     private BigDecimal balance;
 }

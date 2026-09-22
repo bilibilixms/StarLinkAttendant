@@ -26,6 +26,7 @@ export const useUserStore = defineStore('user', () => {
   const isLogin = computed(() => !!token.value && !!member.value)
   const balance = computed(() => member.value?.balance ?? 0)
   const points = computed(() => member.value?.availablePoints ?? 0)
+  const growthValue = computed(() => member.value?.growthValue ?? 0)
   const levelName = computed(() => member.value?.levelName ?? '普通会员')
   const nickname = computed(() => member.value?.nickName || member.value?.realName || '会员用户')
   const avatar = computed(() => member.value?.avatar || '')
@@ -100,6 +101,7 @@ export const useUserStore = defineStore('user', () => {
     isLogin,
     balance,
     points,
+    growthValue,
     levelName,
     nickname,
     avatar,

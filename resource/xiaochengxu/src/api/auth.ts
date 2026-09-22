@@ -16,6 +16,7 @@ interface MemberLoginResponse {
   phone: string | null
   levelName: string | null
   totalPoints: number | null
+  growthValue: number | null
   balance: number | string | null
 }
 
@@ -26,6 +27,7 @@ interface MemberLoginResponse {
 function mapLoginResult(r: MemberLoginResponse): LoginResult {
   const balance = Number(r.balance ?? 0) || 0
   const totalPoints = Number(r.totalPoints ?? 0) || 0
+  const growthValue = Number(r.growthValue ?? 0) || 0
   const member: Member = {
     id: r.id,
     memberNo: r.memberNo ?? '',
@@ -39,6 +41,7 @@ function mapLoginResult(r: MemberLoginResponse): LoginResult {
     levelName: r.levelName ?? '普通会员',
     availablePoints: totalPoints,
     totalPoints,
+    growthValue,
     balance,
     totalRecharge: 0,
     totalConsumption: 0,

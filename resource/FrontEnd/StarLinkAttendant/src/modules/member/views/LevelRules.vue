@@ -135,7 +135,7 @@ onMounted(fetchData)
           </el-col>
           <el-col :span="12">
             <el-form-item label="最高成长值" prop="maxGrowth">
-              <el-input-number v-model="formData.maxGrowth" :min="0" style="width: 100%" />
+              <el-input-number v-model="formData.maxGrowth" :min="0" :max="2147483647" style="width: 100%" />
             </el-form-item>
           </el-col>
         </el-row>

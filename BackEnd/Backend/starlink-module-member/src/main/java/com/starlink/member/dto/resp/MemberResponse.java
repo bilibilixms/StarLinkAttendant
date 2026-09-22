@@ -31,6 +31,8 @@ public class MemberResponse {
 
     private Long availablePoints;
 
+    private Integer growthValue;
+
     private BigDecimal totalRecharge;
 
     private BigDecimal balance;

@@ -11,6 +11,7 @@ export interface MemberItem {
   levelName: string
   totalPoints: number
   availablePoints: number
+  growthValue: number
   totalRecharge: number
   balance: number
   totalConsumption: number

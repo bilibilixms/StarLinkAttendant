@@ -124,6 +124,10 @@ watch(() => route.params.id, () => {
           <span class="stat-value">{{ member.availablePoints }}</span>
         </div>
         <div class="stat-item">
+          <span class="stat-label">成长值</span>
+          <span class="stat-value">{{ member.growthValue ?? 0 }}</span>
+        </div>
+        <div class="stat-item">
           <span class="stat-label">累计上网</span>
           <span class="stat-value">{{ member.totalOnlineHours || 0 }}小时</span>
         </div>

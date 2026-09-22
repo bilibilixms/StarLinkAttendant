@@ -119,6 +119,11 @@ function onAvatarTap(): void {
           </view>
         </view>
       </view>
+
+      <view class="row">
+        <text class="row__label">成长值</text>
+        <text class="row__value">{{ user.growthValue }}</text>
+      </view>
     </view>
 
     <!-- ==================== 可编辑 ==================== -->

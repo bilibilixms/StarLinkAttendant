@@ -71,6 +71,7 @@ public class MemberService {
         resp.setRealName(member.getRealName());
         resp.setPhone(member.getPhone());
         resp.setTotalPoints(member.getTotalPoints());
+        resp.setGrowthValue(member.getGrowthValue());
         resp.setBalance(member.getBalance());
         MemberLevel level = memberLevelMapper.selectById(member.getLevelId());
         resp.setLevelName(level != null ? level.getLevelName() : "普通会员");
@@ -126,6 +127,7 @@ public class MemberService {
         member.setLevelId(getDefaultLevelId());
         member.setTotalPoints(0L);
         member.setAvailablePoints(0L);
+        member.setGrowthValue(0);
         member.setTotalRecharge(BigDecimal.ZERO);
         member.setBalance(BigDecimal.ZERO);
         member.setTotalConsumption(BigDecimal.ZERO);
@@ -153,6 +155,7 @@ public class MemberService {
         member.setLevelId(getDefaultLevelId());
         member.setTotalPoints(0L);
         member.setAvailablePoints(0L);
+        member.setGrowthValue(0);
         member.setTotalRecharge(BigDecimal.ZERO);
         member.setBalance(BigDecimal.ZERO);
         member.setTotalConsumption(BigDecimal.ZERO);

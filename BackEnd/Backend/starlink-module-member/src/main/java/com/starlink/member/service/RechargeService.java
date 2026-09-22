@@ -14,6 +14,7 @@ import com.starlink.member.entity.MemberRecharge;
 import com.starlink.member.mapper.MemberLevelMapper;
 import com.starlink.member.mapper.MemberMapper;
 import com.starlink.member.mapper.MemberRechargeMapper;
+import com.starlink.common.constant.CommonConstants;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.UUID;
 
@@ -32,6 +34,7 @@ public class RechargeService {
     private final MemberRechargeMapper rechargeMapper;
     private final MemberMapper memberMapper;
     private final MemberLevelMapper levelMapper;
+    private final GrowthValueService growthValueService;
 
     @Transactional
     public RechargeRecordResponse recharge(RechargeRequest request) {
@@ -74,6 +77,12 @@ public class RechargeService {
         member.setBalance(balanceAfter);
         member.setTotalRecharge(member.getTotalRecharge().add(request.getAmount()));
         memberMapper.updateById(member);
+
+        // 充值获得成长值：按实付金额（1元=1经验，向下取整），赠送金额不计经验
+        growthValueService.addGrowth(request.getMemberId(),
+                request.getAmount().setScale(0, RoundingMode.DOWN).intValue(),
+                (byte) CommonConstants.GROWTH_BIZ_RECHARGE, recharge.getId(),
+                "余额充值获得成长值（实付" + request.getAmount() + "元）");
 
         log.info("会员充值成功: memberId={}, amount={}, bonus={}", 
                 request.getMemberId(), request.getAmount(), bonusAmount);

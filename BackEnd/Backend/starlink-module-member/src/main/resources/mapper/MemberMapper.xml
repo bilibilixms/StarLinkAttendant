@@ -6,6 +6,7 @@
         SELECT
             m.id, m.member_no, m.real_name, m.gender, m.phone, m.birthday,
             m.level_id, ml.level_name, m.total_points, m.available_points,
+            m.growth_value,
             m.total_recharge, m.balance, m.total_consumption, m.last_login_time,
             m.last_online_time, m.total_online_hours, m.register_source,
             m.status, m.blacklist_reason, m.tag, m.created_at, m.updated_at
@@ -54,6 +55,7 @@
             level_id = #{levelId},
             total_points = 0,
             available_points = 0,
+            growth_value = 0,
             total_recharge = 0,
             balance = 0,
             total_consumption = 0,
@@ -72,6 +74,7 @@
         SELECT
             m.id, m.member_no, m.real_name, m.gender, m.phone, m.birthday,
             m.level_id, ml.level_name, m.total_points, m.available_points,
+            m.growth_value,
             m.total_recharge, m.balance, m.total_consumption, m.last_login_time,
             m.last_online_time, m.total_online_hours, m.register_source,
             m.status, m.blacklist_reason, m.tag, m.created_at, m.updated_at

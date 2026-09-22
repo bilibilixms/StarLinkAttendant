@@ -33,6 +33,7 @@ import com.starlink.common.result.ErrorCode;
 import com.starlink.common.util.PageResult;
 import com.starlink.common.utils.NumberGenerator;
 import com.starlink.member.service.BalanceService;
+import com.starlink.member.service.GrowthValueService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -40,6 +41,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -56,6 +58,7 @@ public class OrderServiceImpl implements OrderService {
     private final ProductInfoMapper productInfoMapper;
     private final CashierShiftMapper shiftMapper;
     private final BalanceService balanceService;
+    private final GrowthValueService growthValueService;
 
     @Override
     public PageResult<OrderResponse> getOrderPage(OrderQueryRequest query) {
@@ -232,6 +235,15 @@ public class OrderServiceImpl implements OrderService {
         order.setPaidAmount(order.getPayableAmount());
         order.setPaidAt(LocalDateTime.now());
         orderMapper.updateById(order);
+
+        // 现金/微信/支付宝直接消费获得成长值（1元=1经验，向下取整）；余额支付不获得经验
+        if (order.getMemberId() != null
+                && request.getPaymentMethod() != null
+                && request.getPaymentMethod() != CommonConstants.PAY_METHOD_BALANCE) {
+            growthValueService.addGrowth(order.getMemberId(),
+                    order.getPayableAmount().setScale(0, RoundingMode.DOWN).intValue(),
+                    (byte) CommonConstants.GROWTH_BIZ_CONSUME, orderId, "收银消费获得成长值");
+        }
 
         // Update active shift counters
         updateShiftOnTransaction(operatorId, order.getPayableAmount(),

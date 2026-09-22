@@ -33,6 +33,8 @@ export interface Member {
   levelName?: string
   availablePoints: number
   totalPoints: number
+  /** 累计成长值（1元=1经验） */
+  growthValue?: number
   balance: number
   totalRecharge: number
   totalConsumption: number

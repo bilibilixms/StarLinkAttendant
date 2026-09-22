@@ -34,6 +34,9 @@ public class Member extends BaseEntity {
 
     private Long availablePoints;
 
+    /** 累计成长值（1元=1经验） */
+    private Integer growthValue;
+
     private BigDecimal totalRecharge;
 
     private BigDecimal balance;
