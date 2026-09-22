@@ -53,6 +53,11 @@ public class SessionService {
     private final ComputerMapper computerMapper;
     private final BillingRecordMapper billingRecordMapper;
     /**
+     * 统一计费器：所有费用计算（下机/强制下机/实时估价）走同一套规则，
+     * 避免与 SessionBillingScheduler、会员端页面口径漂移。
+     */
+    private final TariffCalculator tariffCalculator;
+    /**
      * 时间来源：生产为系统时钟，测试/调试可注入可推进的仿真时钟。
      * 上机/计费的所有时间点（startTime/endTime/计时段）都取自它，
      * 因此「时间快进」能真实驱动本模块，而计费规则本身不变。
@@ -160,8 +165,9 @@ public class SessionService {
         endCurrentTiming(session.getId(), now);
 
         // 2. 计算总时长和费用（基于累计时长整体计算）
-        int totalMinutes = calculateTotalMinutes(session.getId());
-        BigDecimal totalAmount = calculateAmountByMinutes(totalMinutes, session.getTariffPlanId());
+        // 不足 1 分钟按 1 分钟起计，且不足 1 小时按 1 小时计费（规则见 TariffCalculator）
+        int totalMinutes = Math.max(calculateTotalMinutes(session.getId()), 1);
+        BigDecimal totalAmount = tariffCalculator.calculate(totalMinutes, session.getTariffPlanId());
 
         // 3. 分配费用到各计时段
         distributeAmountToTimings(session.getId(), totalAmount);
@@ -383,9 +389,9 @@ public class SessionService {
         // 1. 结束当前计时段
         endCurrentTiming(session.getId(), now);
 
-        // 2. 计算费用（基于累计时长整体计算）
-        int totalMinutes = calculateTotalMinutes(session.getId());
-        BigDecimal totalAmount = calculateAmountByMinutes(totalMinutes, session.getTariffPlanId());
+        // 2. 计算费用（基于累计时长整体计算；不足 1 分钟按 1 分钟、不足 1 小时按 1 小时）
+        int totalMinutes = Math.max(calculateTotalMinutes(session.getId()), 1);
+        BigDecimal totalAmount = tariffCalculator.calculate(totalMinutes, session.getTariffPlanId());
 
         // 3. 分配费用到各计时段
         distributeAmountToTimings(session.getId(), totalAmount);
@@ -424,6 +430,21 @@ public class SessionService {
         log.info("强制下机: sessionId={}, reason={}", session.getId(), request.getReason());
 
         return buildSessionResponse(session.getId());
+    }
+
+    /**
+     * 会员端：查询某会员当前活跃会话（上机中/临时下机），无活跃会话时返回 null。
+     * <p>
+     * 供小程序「当前上机」轮询使用；响应中的时长/费用为实时计算值。
+     */
+    public SessionResponse getActiveSessionByMember(Long memberId) {
+        Session session = sessionMapper.selectOne(
+                new LambdaQueryWrapper<Session>()
+                        .eq(Session::getMemberId, memberId)
+                        .in(Session::getStatus, 0, 1)
+                        .orderByDesc(Session::getStartTime)
+                        .last("LIMIT 1"));
+        return session == null ? null : buildSessionResponseFromEntity(session);
     }
 
     /**
@@ -574,57 +595,9 @@ public class SessionService {
     }
 
     /**
-     * 根据累计上机分钟数和费率方案计算会话总费用。
-     * <p>
-     * 将整个会话的累计时长作为整体代入费率公式，只计算一次。
-     * <ul>
-     *   <li>按时方案（含首时价 rate_type=1 + 续价 rate_type=2）：
-     *       前 first_minutes 分钟固定 first_price，超出部分按续价（元/分钟）</li>
-     *   <li>包时方案（rate_type=3）：固定 first_price</li>
-     * </ul>
+     * 费用计算统一委托给 {@link TariffCalculator}（不足 1 分钟按 1 分钟、
+     * 不足 1 小时按 1 小时），本类不再保留私有计费公式。
      */
-    private BigDecimal calculateAmountByMinutes(int totalMinutes, Long tariffPlanId) {
-        if (tariffPlanId == null || totalMinutes <= 0) {
-            return BigDecimal.ZERO;
-        }
-
-        List<Map<String, Object>> tariffRates = sessionMapper.selectTariffRates(tariffPlanId);
-        if (tariffRates.isEmpty()) {
-            return BigDecimal.ZERO;
-        }
-
-        // 检查是否包含包时价（rate_type=3）
-        for (Map<String, Object> rate : tariffRates) {
-            int rt = ((Number) rate.get("rateType")).intValue();
-            if (rt == 3) {
-                return toBigDecimal(rate.get("firstPrice")).setScale(2, RoundingMode.HALF_UP);
-            }
-        }
-
-        // 按时方案：首时价 + 续价（renewal_price 数据库单位为 元/分钟）
-        BigDecimal firstPrice = BigDecimal.ZERO;
-        int firstMinutes = 0;
-        BigDecimal renewalPricePerMinute = BigDecimal.ZERO;
-
-        for (Map<String, Object> rate : tariffRates) {
-            int rt = ((Number) rate.get("rateType")).intValue();
-            if (rt == 1) {
-                firstPrice = toBigDecimal(rate.get("firstPrice"));
-                firstMinutes = ((Number) rate.get("firstMinutes")).intValue();
-            } else if (rt == 2) {
-                renewalPricePerMinute = toBigDecimal(rate.get("renewalPrice"));
-            }
-        }
-
-        if (totalMinutes <= firstMinutes) {
-            return firstPrice.setScale(2, RoundingMode.HALF_UP);
-        } else {
-            int extraMinutes = totalMinutes - firstMinutes;
-            BigDecimal extra = renewalPricePerMinute.multiply(BigDecimal.valueOf(extraMinutes))
-                    .setScale(2, RoundingMode.HALF_UP);
-            return firstPrice.add(extra);
-        }
-    }
 
     /**
      * 将会话总费用分配到各计费段，并更新段金额。
@@ -677,15 +650,6 @@ public class SessionService {
                 sessionTimingMapper.updateById(t);
             }
         }
-    }
-
-    /**
-     * 安全地将 Object 转换为 BigDecimal。
-     */
-    private BigDecimal toBigDecimal(Object value) {
-        if (value == null) return BigDecimal.ZERO;
-        if (value instanceof BigDecimal) return (BigDecimal) value;
-        return new BigDecimal(value.toString());
     }
 
     /**
@@ -778,11 +742,11 @@ public class SessionService {
                 resp.setComputerName(computer.getComputerName());
             }
 
-            // 活跃会话实时计算已计费时长和费用
+            // 活跃会话实时计算已计费时长和费用（不足 1 小时按 1 小时，计费器内部兜底）
             if (s.getStatus() == 0 || s.getStatus() == 1) {
                 int realtimeMinutes = calculateRealtimeBilledMinutes(s.getId());
                 resp.setBilledMinutes(realtimeMinutes);
-                resp.setTotalAmount(calculateAmountByMinutes(realtimeMinutes, s.getTariffPlanId()));
+                resp.setTotalAmount(tariffCalculator.calculate(realtimeMinutes, s.getTariffPlanId()));
             }
 
             // 填充会员信息（跨模块查询 member 表）
@@ -824,11 +788,11 @@ public class SessionService {
             resp.setComputerName(computer.getComputerName());
         }
 
-        // 活跃会话实时计算已计费时长和费用
+        // 活跃会话实时计算已计费时长和费用（不足 1 小时按 1 小时，计费器内部兜底）
         if (session.getStatus() == 0 || session.getStatus() == 1) {
             int realtimeMinutes = calculateRealtimeBilledMinutes(session.getId());
             resp.setBilledMinutes(realtimeMinutes);
-            resp.setTotalAmount(calculateAmountByMinutes(realtimeMinutes, session.getTariffPlanId()));
+            resp.setTotalAmount(tariffCalculator.calculate(realtimeMinutes, session.getTariffPlanId()));
         }
 
         // 填充会员信息（跨模块查询 member 表）

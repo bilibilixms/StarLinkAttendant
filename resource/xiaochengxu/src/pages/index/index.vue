@@ -128,19 +128,9 @@ function onSearch(): void {
   navTo('/pages/store/index')
 }
 
-/** 扫码上机：调用微信扫码能力 */
+/** 直接上机：跳转到选座页，点击空闲机位即开台 */
 function onScan(): void {
-  uni.scanCode({
-    scanType: ['qrCode'],
-    success: (res) => {
-      const raw = res.result || ''
-      navTo(`/pages/session/scan?qr=${encodeURIComponent(raw)}`)
-    },
-    fail: (err) => {
-      // 用户主动取消不提示
-      if (!/cancel/i.test(String(err?.errMsg))) toast('扫码失败，请重试')
-    },
-  })
+  navTo('/pages/session/scan')
 }
 
 async function onMenu(): Promise<void> {

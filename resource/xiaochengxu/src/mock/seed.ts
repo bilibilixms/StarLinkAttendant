@@ -83,7 +83,7 @@ export const seedServiceGrid = [
     group: '星络灵侍馆服务有什么？',
     items: [
       { key: 'reserve', title: '预约订座', desc: '提前锁定位置', icon: 'svc-seat', theme: 'cyan' },
-      { key: 'scan', title: '扫码上机', desc: '一键光速开机', icon: 'svc-power', theme: 'blue' },
+      { key: 'scan', title: '直接上机', desc: '选定机位即开机', icon: 'svc-power', theme: 'blue' },
       { key: 'remote-end', title: '远程下机', desc: '挂机不误事', icon: 'svc-remote', theme: 'sky' },
       { key: 'order-food', title: '自助点餐', desc: '一键下单送到位', icon: 'svc-food', theme: 'mint' },
       { key: 'recharge', title: '在线充值', desc: '在线充值享优惠', icon: 'svc-wallet', theme: 'teal' },

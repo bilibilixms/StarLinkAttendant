@@ -1,6 +1,7 @@
 package com.starlink.session.task;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.starlink.session.service.TariffCalculator;
 import com.starlink.session.entity.BillingRecord;
 import com.starlink.session.entity.Computer;
 import com.starlink.session.entity.Session;
@@ -21,7 +22,6 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
-import java.util.Map;
 
 /**
  * 会话实时计费定时任务。
@@ -29,12 +29,9 @@ import java.util.Map;
  * 每分钟扫描所有活跃会话（上机中 / 临时下机），根据关联的费率方案
  * 计算并更新 session_timing.amount 与 session.total_amount。
  * <p>
- * 计费规则（按时方案 plan_type=1）：
- * <ul>
- *   <li>首时价（rate_type=1）：前 first_minutes 分钟固定收费 first_price</li>
- *   <li>续价（rate_type=2）：超出首时后按 renewal_price 元/分钟计费</li>
- * </ul>
- * 包时方案（plan_type=2）：固定收费 first_price。
+ * 计费规则统一由 {@link TariffCalculator} 计算：不足 1 分钟按 1 分钟起计，
+ * 首时段（通常 60 分钟）固定收首时价（即不足 1 小时按 1 小时），超出首时段后
+ * 不足 1 小时也按 1 小时、按续价小时单价计；包时方案固定收费。
  *
  */
 @Slf4j
@@ -46,6 +43,7 @@ public class SessionBillingScheduler {
     private final SessionTimingMapper sessionTimingMapper;
     private final ComputerMapper computerMapper;
     private final BillingRecordMapper billingRecordMapper;
+    private final TariffCalculator tariffCalculator;
     /**
      * 时间来源：生产为系统时钟；测试/调试注入可推进的仿真时钟后，
      * 一次 tick 即可按「快进后的时间」结算，从而几秒内验证数小时的计费过程。
@@ -145,8 +143,8 @@ public class SessionBillingScheduler {
             }
         }
 
-        // 5. 用累计分钟数代入费率公式计算一次总费用
-        BigDecimal totalAmount = calculateAmountByMinutes(cumulativeMinutes, session.getTariffPlanId());
+        // 5. 用累计分钟数代入统一费率公式计算一次总费用
+        BigDecimal totalAmount = tariffCalculator.calculate(cumulativeMinutes, session.getTariffPlanId());
 
         // 6. 将总费用分配到各计费段
         BigDecimal distributed = BigDecimal.ZERO;
@@ -240,61 +238,8 @@ public class SessionBillingScheduler {
     }
 
     /**
-     * 根据累计上机分钟数和费率方案计算会话总费用。
-     * <p>
-     * 将整个会话的累计时长作为整体代入费率公式，只计算一次。
+     * 费用计算统一走 TariffCalculator（与下机结算、会员端实时估价同口径）。
      */
-    private BigDecimal calculateAmountByMinutes(int totalMinutes, Long tariffPlanId) {
-        if (tariffPlanId == null || totalMinutes <= 0) {
-            return BigDecimal.ZERO;
-        }
-
-        List<Map<String, Object>> tariffRates = sessionMapper.selectTariffRates(tariffPlanId);
-        if (tariffRates.isEmpty()) {
-            return BigDecimal.ZERO;
-        }
-
-        // 检查是否包含包时价（rate_type=3）
-        for (Map<String, Object> rate : tariffRates) {
-            int rt = ((Number) rate.get("rateType")).intValue();
-            if (rt == 3) {
-                return toBigDecimal(rate.get("firstPrice")).setScale(2, RoundingMode.HALF_UP);
-            }
-        }
-
-        // 按时方案：首时价 + 续价（renewal_price 数据库单位为 元/分钟）
-        BigDecimal firstPrice = BigDecimal.ZERO;
-        int firstMinutes = 0;
-        BigDecimal renewalPricePerMinute = BigDecimal.ZERO;
-
-        for (Map<String, Object> rate : tariffRates) {
-            int rt = ((Number) rate.get("rateType")).intValue();
-            if (rt == 1) {
-                firstPrice = toBigDecimal(rate.get("firstPrice"));
-                firstMinutes = ((Number) rate.get("firstMinutes")).intValue();
-            } else if (rt == 2) {
-                renewalPricePerMinute = toBigDecimal(rate.get("renewalPrice"));
-            }
-        }
-
-        if (totalMinutes <= firstMinutes) {
-            return firstPrice.setScale(2, RoundingMode.HALF_UP);
-        } else {
-            int extraMinutes = totalMinutes - firstMinutes;
-            BigDecimal extra = renewalPricePerMinute.multiply(BigDecimal.valueOf(extraMinutes))
-                    .setScale(2, RoundingMode.HALF_UP);
-            return firstPrice.add(extra);
-        }
-    }
-
-    /**
-     * 安全地将 Object 转换为 BigDecimal。
-     */
-    private BigDecimal toBigDecimal(Object value) {
-        if (value == null) return BigDecimal.ZERO;
-        if (value instanceof BigDecimal) return (BigDecimal) value;
-        return new BigDecimal(value.toString());
-    }
 
     /**
      * 因余额不足触发强制下机。
@@ -327,7 +272,9 @@ public class SessionBillingScheduler {
         for (SessionTiming t : allTimings) {
             totalMinutes += (t.getDurationMinutes() != null) ? t.getDurationMinutes() : 0;
         }
-        BigDecimal finalAmount = calculateAmountByMinutes(totalMinutes, session.getTariffPlanId());
+        // 不足 1 分钟按 1 分钟起计（billed_minutes 落库与计费口径保持一致）
+        totalMinutes = Math.max(totalMinutes, 1);
+        BigDecimal finalAmount = tariffCalculator.calculate(totalMinutes, session.getTariffPlanId());
 
         // 3. 尝试扣款（余额不足时扣现有余额）
         BigDecimal balance = sessionMapper.selectMemberBalance(session.getMemberId());

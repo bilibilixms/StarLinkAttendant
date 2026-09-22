@@ -1,5 +1,5 @@
 /**
- * 上机会话接口：扫码上机 / 自助下机 / 当前会话 / 上机记录。
+ * 上机会话接口：直接上机 / 自助下机 / 当前会话 / 上机记录。
  */
 import { get, post } from './request'
 import { API_PREFIX } from '@/config'
@@ -11,7 +11,7 @@ export function getCurrentSession(): Promise<CurrentSession | null> {
   return get<CurrentSession | null>(`${API_PREFIX}/session/current`, undefined, { silent: true })
 }
 
-/** 扫码上机 */
+/** 直接上机（沿用 scan-start 接口，前端不再扫码，点击机位即开台） */
 export function scanStart(payload: ScanStartRequest): Promise<ScanStartResult> {
   return post<ScanStartResult>(`${API_PREFIX}/session/scan-start`, payload as unknown as Record<string, unknown>)
 }

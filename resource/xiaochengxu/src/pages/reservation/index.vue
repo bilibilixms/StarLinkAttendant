@@ -101,7 +101,7 @@ function switchArea(id: number): void {
 
 function toggleSeat(seat: Computer): void {
   if (seat.status !== 0) {
-    toast(`该机位${{ 1: '使用中', 2: '已预约', 3: '维修中', 4: '离线' }[seat.status] ?? '不可用'}`)
+    toast(`该机位${{ 1: '使用中', 2: '锁定', 3: '维修中', 4: '关机' }[seat.status] ?? '不可用'}`)
     return
   }
   const idx = selectedSeatIds.value.indexOf(seat.id)
@@ -250,7 +250,7 @@ async function onSubmit(): Promise<void> {
             @tap="switchArea(a.id)"
           >
             <text class="area__name">{{ a.areaName }}</text>
-            <text class="area__meta">{{ a.hourlyRate }}元/时</text>
+            <text class="area__meta">{{ a.hourlyRate ? `${a.hourlyRate}元/时` : '到店计费' }}</text>
             <text class="area__free">空闲 {{ a.freeCount }}</text>
           </view>
         </view>
@@ -279,8 +279,9 @@ async function onSubmit(): Promise<void> {
         <view class="legend">
           <view class="legend__item"><view class="legend__dot legend__dot--free" /><text class="legend__text">空闲</text></view>
           <view class="legend__item"><view class="legend__dot legend__dot--busy" /><text class="legend__text">使用中</text></view>
-          <view class="legend__item"><view class="legend__dot legend__dot--booked" /><text class="legend__text">已预约</text></view>
+          <view class="legend__item"><view class="legend__dot legend__dot--locked" /><text class="legend__text">锁定</text></view>
           <view class="legend__item"><view class="legend__dot legend__dot--fix" /><text class="legend__text">维修中</text></view>
+          <view class="legend__item"><view class="legend__dot legend__dot--off" /><text class="legend__text">关机</text></view>
         </view>
       </view>
 
@@ -378,7 +379,7 @@ async function onSubmit(): Promise<void> {
         </view>
         <view class="amt">
           <text class="amt__label">参考费用</text>
-          <text class="amt__value">约 ¥{{ formatMoney(estimate) }}（到店按实际计费）</text>
+          <text class="amt__value">{{ estimate > 0 ? `约 ¥${formatMoney(estimate)}` : '到店按实际计费' }}</text>
         </view>
       </view>
 
@@ -589,7 +590,7 @@ async function onSubmit(): Promise<void> {
 }
 
 .is-s1 {
-  background: #b8bccb;
+  background: #409eff;
 }
 
 .is-s2 {
@@ -601,7 +602,7 @@ async function onSubmit(): Promise<void> {
 }
 
 .is-s4 {
-  background: #d8dae4;
+  background: #909399;
 }
 
 .seat.is-picked {
@@ -631,15 +632,19 @@ async function onSubmit(): Promise<void> {
 }
 
 .legend__dot--busy {
-  background: #b8bccb;
+  background: #409eff;
 }
 
-.legend__dot--booked {
+.legend__dot--locked {
   background: #ff9f2e;
 }
 
 .legend__dot--fix {
   background: #ff5b5b;
+}
+
+.legend__dot--off {
+  background: #909399;
 }
 
 .legend__text {

@@ -6,6 +6,8 @@ import com.starlink.common.result.ErrorCode;
 import com.starlink.session.dto.resp.ComputerResponse;
 import com.starlink.session.dto.resp.SeatAreaResponse;
 import com.starlink.session.dto.resp.SeatStatusResponse;
+import com.starlink.session.dto.resp.MemberSeatAreaResponse;
+import com.starlink.session.dto.resp.MemberComputerResponse;
 import com.starlink.session.entity.Computer;
 import com.starlink.session.entity.SeatArea;
 import com.starlink.session.entity.Session;
@@ -19,9 +21,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -270,6 +274,149 @@ public class SeatService {
         }
         computerMapper.deleteById(id);
         log.info("删除机位: id={}", id);
+    }
+
+    // ==================== 会员端查询（隐藏敏感字段，状态由活跃会话驱动） ====================
+
+    /**
+     * 会员端区域摘要：返回启用区域 + 空闲/总数统计，不含机位明细。
+     * <p>
+     * 状态计算与 {@link #getSeatMap()} 一致：有活跃会话 → 使用中；无活跃会话 → 使用机位自身状态（自愈）。
+     */
+    public List<MemberSeatAreaResponse> getMemberSeatAreas() {
+        List<SeatArea> areas = seatAreaMapper.selectList(
+                new LambdaQueryWrapper<SeatArea>()
+                        .eq(SeatArea::getIsActive, 1)
+                        .orderByAsc(SeatArea::getSortOrder)
+                        .orderByAsc(SeatArea::getId));
+
+        List<Computer> computers = computerMapper.selectList(
+                new LambdaQueryWrapper<Computer>()
+                        .eq(Computer::getIsActive, 1));
+
+        List<Session> activeSessions = sessionMapper.selectList(
+                new LambdaQueryWrapper<Session>()
+                        .in(Session::getStatus, 0, 1));
+        Set<Long> busyIds = activeSessions.stream()
+                .map(Session::getComputerId)
+                .collect(Collectors.toSet());
+
+        Map<Long, List<Computer>> byArea = computers.stream()
+                .collect(Collectors.groupingBy(Computer::getAreaId));
+
+        List<MemberSeatAreaResponse> result = new ArrayList<>();
+        for (SeatArea area : areas) {
+            MemberSeatAreaResponse resp = new MemberSeatAreaResponse();
+            resp.setId(area.getId());
+            resp.setAreaName(area.getAreaName());
+            resp.setAreaColor(area.getAreaColor());
+            resp.setSortOrder(area.getSortOrder());
+
+            List<Computer> list = byArea.getOrDefault(area.getId(), Collections.emptyList());
+            int free = 0;
+            for (Computer c : list) {
+                byte realStatus = busyIds.contains(c.getId())
+                        ? 1
+                        : (c.getStatus() != null && c.getStatus() == 1 ? 0 : c.getStatus());
+                if (realStatus == 0) free++;
+            }
+            resp.setFreeCount(free);
+            resp.setTotalCount(list.size());
+            result.add(resp);
+        }
+        return result;
+    }
+
+    /**
+     * 会员端座位图：返回指定区域 + 机位明细（隐藏 MAC/IP/费率方案）。
+     * <p>
+     * 状态由活跃会话驱动，与 Web 管理端 getSeatMap() 保持一致。
+     *
+     * @param areaId 区域 ID；为空时返回首个启用区域
+     */
+    public MemberSeatAreaResponse getMemberSeatMap(Long areaId) {
+        // 1. 确定目标区域
+        SeatArea area;
+        if (areaId != null) {
+            area = seatAreaMapper.selectOne(
+                    new LambdaQueryWrapper<SeatArea>()
+                            .eq(SeatArea::getId, areaId)
+                            .eq(SeatArea::getIsActive, 1));
+            if (area == null) {
+                throw new BusinessException(ErrorCode.NOT_FOUND);
+            }
+        } else {
+            area = seatAreaMapper.selectOne(
+                    new LambdaQueryWrapper<SeatArea>()
+                            .eq(SeatArea::getIsActive, 1)
+                            .orderByAsc(SeatArea::getSortOrder)
+                            .orderByAsc(SeatArea::getId)
+                            .last("LIMIT 1"));
+            if (area == null) {
+                throw new BusinessException(ErrorCode.NOT_FOUND);
+            }
+        }
+
+        // 2. 查询该区域的启用机位
+        List<Computer> computers = computerMapper.selectList(
+                new LambdaQueryWrapper<Computer>()
+                        .eq(Computer::getAreaId, area.getId())
+                        .eq(Computer::getIsActive, 1)
+                        .orderByAsc(Computer::getSortOrder)
+                        .orderByAsc(Computer::getComputerNo));
+
+        // 3. 查询活跃会话，构建机位状态映射
+        List<Session> activeSessions = sessionMapper.selectList(
+                new LambdaQueryWrapper<Session>()
+                        .in(Session::getStatus, 0, 1));
+        Map<Long, Session> computerSessionMap = new LinkedHashMap<>();
+        for (Session s : activeSessions) {
+            computerSessionMap.putIfAbsent(s.getComputerId(), s);
+        }
+
+        // 4. 组装机位明细（状态由活跃会话驱动，与 getSeatMap() 一致）
+        List<MemberComputerResponse> seats = new ArrayList<>();
+        int free = 0;
+        for (Computer c : computers) {
+            MemberComputerResponse resp = new MemberComputerResponse();
+            resp.setId(c.getId());
+            resp.setAreaId(c.getAreaId());
+            resp.setAreaName(area.getAreaName());
+            resp.setComputerNo(c.getComputerNo());
+            resp.setComputerName(c.getComputerName());
+            resp.setSeatLabel(c.getSeatLabel());
+            resp.setDeviceType(c.getDeviceType());
+            resp.setCpu(c.getCpu());
+            resp.setGpu(c.getGpu());
+            resp.setMemory(c.getMemory());
+            resp.setScreenSize(c.getScreenSize());
+            resp.setSortOrder(c.getSortOrder());
+            resp.setPosX(c.getPosX());
+            resp.setPosY(c.getPosY());
+
+            byte realStatus;
+            if (computerSessionMap.containsKey(c.getId())) {
+                realStatus = 1;
+            } else {
+                byte raw = c.getStatus() == null ? 0 : c.getStatus();
+                realStatus = raw == 1 ? 0 : raw;
+            }
+            resp.setStatus(realStatus);
+            resp.setStatusLabel(getComputerStatusLabel(realStatus));
+            seats.add(resp);
+            if (realStatus == 0) free++;
+        }
+
+        // 5. 组装区域响应
+        MemberSeatAreaResponse result = new MemberSeatAreaResponse();
+        result.setId(area.getId());
+        result.setAreaName(area.getAreaName());
+        result.setAreaColor(area.getAreaColor());
+        result.setSortOrder(area.getSortOrder());
+        result.setFreeCount(free);
+        result.setTotalCount(computers.size());
+        result.setComputers(seats);
+        return result;
     }
 
     private String getComputerStatusLabel(Byte status) {

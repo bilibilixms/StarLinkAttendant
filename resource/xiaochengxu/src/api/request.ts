@@ -50,6 +50,12 @@ function isMemberEndpoint(url: string): boolean {
     /^\/api\/member\/products\/\d+$/.test(u) ||
     u === '/api/member/products/hot' ||
     /^\/api\/member\/products\/hot\/\d+$/.test(u) ||
+    // 小程序机位查询：座位图 / 区域摘要，穿透 mock 直达真实后端机位表
+    u === '/api/member/seats/areas' ||
+    u === '/api/member/seats/map' ||
+    // 小程序自助上机：一键开机 / 当前会话 / 自助下机 / 临时下机 / 恢复 / 记录，
+    // 穿透 mock 直达真实后端 session 表，下机费用由后端实算并扣减 member 表余额
+    /^\/api\/member\/session\//.test(u) ||
     // 当前登录者信息：走真实后端（返回实际登录的会员）
     u === '/api/auth/info' ||
     /^\/api\/member\/\d+\/recharge-records$/.test(u) ||

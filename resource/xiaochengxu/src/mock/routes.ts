@@ -88,7 +88,9 @@ function buildCurrentSession(s: ReturnType<typeof db>): CurrentSession | null {
     totalAmount: fee.total,
     discountAmount: fee.discount,
     paidAmount: fee.payable,
+    firstHourPrice: cs.firstHourPrice ?? cs.hourlyRate,
     balance,
+    balanceAfter: round2(Math.max(0, balance - fee.payable)),
     remainingMinutes: remain,
   }
 }
@@ -281,7 +283,9 @@ export const routes: MockRoute[] = [
           discountAmount: 0,
           paidAmount: 0,
           hourlyRate: area.hourlyRate,
+          firstHourPrice: area.hourlyRate,
           balance: st.member.balance,
+          balanceAfter: st.member.balance,
           remainingMinutes: Math.floor((st.member.balance / area.hourlyRate) * 60),
           status: 0,
         }
@@ -948,15 +952,15 @@ export const routes: MockRoute[] = [
       return keyword ? list.filter((s) => s.name.includes(keyword) || s.address.includes(keyword)) : list
     },
   },
-  { method: 'GET', path: `${P}/computers/areas`, handler: () => seed.seedSeatAreas },
+  { method: 'GET', path: `${P}/seats/areas`, handler: () => seed.seedSeatAreas },
   {
     method: 'GET',
-    path: `${P}/computers/available`,
+    path: `${P}/seats/map`,
     handler: (ctx) => {
       const areaId = Number(ctx.query.areaId ?? 1)
       const seats = seed.seedComputers[areaId] ?? seed.seedComputers[1]
       const area = seed.seedSeatAreas.find((a) => a.id === areaId) ?? seed.seedSeatAreas[0]
-      return { areaId, areaName: area.areaName, cols: 6, seats }
+      return { id: areaId, areaName: area.areaName, freeCount: area.freeCount, totalCount: area.totalCount, computers: seats }
     },
   },
   {

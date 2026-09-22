@@ -16,7 +16,7 @@ import { useAppStore } from '@/stores/app'
 import { useUserStore } from '@/stores/user'
 import { navBack, navTo, reLaunch, goLogin } from '@/utils/nav'
 import { toast, confirm, toastSuccess } from '@/utils/ui'
-import { formatMoney, formatDateTime } from '@/utils/format'
+import { formatMoney, formatDateTime, parseTime } from '@/utils/format'
 import type { CurrentSession } from '@/types/session'
 
 const app = useAppStore()
@@ -35,7 +35,10 @@ let pollTimer: ReturnType<typeof setInterval> | null = null
 const elapsedSeconds = computed(() => {
   const s = session.value
   if (!s) return 0
-  const start = new Date(s.startTime.replace(/-/g, '/')).getTime()
+  // 后端时间为 ISO 字符串（"2026-09-22T17:04:24"），必须用公共 parseTime 解析，
+  // 不能手写 replace(/-/g,'/')，否则会得到 "2026/09/22T..." → Invalid Date → NaN
+  const start = parseTime(s.startTime).getTime()
+  if (Number.isNaN(start)) return 0
   return Math.max(0, Math.floor((tick.value - start) / 1000))
 })
 
@@ -48,27 +51,46 @@ const elapsedText = computed(() => {
 })
 
 /**
- * 每分钟单价：优先用服务器返回的 实付/时长 推算（已含会员折扣），
- * 时长不足 1 分钟时退回原始费率。
+ * 当前应付费用。
+ * 规则以后端为准（TariffCalculator）：不足 1 小时按首小时价，超出后每满 1 小时
+ * 加一次续费小时价（不满 1 小时也按 1 小时）。页面每秒走字时按同一阶梯本地估算，
+ * 每 30 秒轮询再用后端 paidAmount 校正，取两者较大值，避免显示回跳。
  */
-const pricePerMinute = computed(() => {
-  const s = session.value
-  if (!s) return 0
-  if (s.durationMinutes >= 1 && s.paidAmount > 0) return s.paidAmount / s.durationMinutes
-  return s.hourlyRate / 60
-})
-
 const currentAmount = computed(() => {
   const s = session.value
   if (!s) return 0
-  const minutes = elapsedSeconds.value / 60
-  return Math.max(s.paidAmount, Math.round(pricePerMinute.value * minutes * 100) / 100)
+  // 不足 1 分钟按 1 分钟起计
+  const chargedMinutes = Math.max(Math.ceil(elapsedSeconds.value / 60), 1)
+  const firstHourPrice = s.firstHourPrice ?? s.paidAmount ?? 0
+  let local = firstHourPrice
+  if (chargedMinutes > 60 && s.hourlyRate > 0) {
+    const extraHours = Math.ceil((chargedMinutes - 60) / 60)
+    local = firstHourPrice + extraHours * s.hourlyRate
+  }
+  // 服务器值兜底（包时方案/费率配置变更等场景），且不允许低于已结算金额
+  return Math.max(s.paidAmount ?? 0, Math.round(local * 100) / 100)
 })
 
-const remainingMinutes = computed(() => {
-  const rate = pricePerMinute.value
-  if (rate <= 0) return -1
-  return Math.max(0, Math.floor((user.balance - currentAmount.value) / rate))
+/** 余额可支撑剩余分钟：以后端按「扣费后余额 + 续费小时价」的计算为准，-1 为不限时 */
+const remainingMinutes = computed(() => session.value?.remainingMinutes ?? -1)
+
+/** 账户实时余额（轮询后端拿到的未扣费余额） */
+const accountBalance = computed(() => session.value?.balance ?? user.balance)
+
+/** 此刻下机的扣费后预计余额 */
+const balanceAfter = computed(() => {
+  const s = session.value
+  if (!s) return user.balance
+  return s.balanceAfter ?? Math.max(0, accountBalance.value - currentAmount.value)
+})
+
+/** 计费标准文案：按时方案显示首小时价 + 续费价；包时方案（hourlyRate=0）显示包时价 */
+const tariffText = computed(() => {
+  const s = session.value
+  if (!s) return ''
+  const first = formatMoney(s.firstHourPrice ?? 0)
+  if (!s.hourlyRate || s.hourlyRate <= 0) return `包时 ¥${first}`
+  return `首小时 ¥${first} · 续费 ¥${formatMoney(s.hourlyRate)}/小时`
 })
 
 const remainingText = computed(() => {
@@ -91,6 +113,9 @@ async function load(showLoading = true): Promise<void> {
     const res = await sessionApi.getCurrentSession()
     session.value = res
     app.setCurrentSession(res)
+    // 以后端真实余额同步全局 store（上机期间余额只在结算时才落库扣减，
+    // 此处同步保证与「我的」页 /auth/info 看到的数字一致）
+    if (res?.balance != null) user.patchBalance(res.balance)
     state.value = res ? 'success' : 'empty'
   } catch {
     if (!session.value) state.value = 'error'
@@ -211,11 +236,11 @@ function goOrder(): void {
       v-if="state === 'empty'"
       state="empty"
       empty-text="当前没有进行中的上机"
-      empty-desc="扫描机位二维码即可一键开机"
+      empty-desc="选定空闲机位即可一键开机"
       empty-icon="empty-box"
     >
       <template #action>
-        <AppButton type="primary" size="md" @tap="goScan">去扫码上机</AppButton>
+        <AppButton type="primary" size="md" @tap="goScan">去上机</AppButton>
       </template>
     </StateView>
 
@@ -256,7 +281,7 @@ function goOrder(): void {
         </view>
         <view class="row">
           <text class="row__label">门店</text>
-          <text class="row__value row__value--ellipsis">{{ session.storeName }}</text>
+          <text class="row__value row__value--ellipsis">{{ session.storeName || app.store.name }}</text>
         </view>
         <view class="row">
           <text class="row__label">开机时间</text>
@@ -272,15 +297,19 @@ function goOrder(): void {
       <view class="card sec">
         <view class="row">
           <text class="row__label">计费标准</text>
-          <text class="row__value">{{ formatMoney(session.hourlyRate) }} 元/小时</text>
+          <text class="row__value">{{ tariffText }}</text>
         </view>
         <view class="row">
           <text class="row__label">账户余额</text>
-          <text class="row__value">¥{{ formatMoney(user.balance) }}</text>
+          <text class="row__value">¥{{ formatMoney(accountBalance) }}</text>
+        </view>
+        <view class="row">
+          <text class="row__label">下机后余额</text>
+          <text class="row__value row__value--money">¥{{ formatMoney(balanceAfter) }}</text>
         </view>
         <view class="row">
           <text class="row__label">余额可用</text>
-          <text class="row__value" :class="{ 'row__value--warn': remainingMinutes <= 30 }">
+          <text class="row__value" :class="{ 'row__value--warn': remainingMinutes >= 0 && remainingMinutes <= 30 }">
             {{ remainingText }}
           </text>
         </view>
@@ -474,6 +503,11 @@ function goOrder(): void {
 
 .row__value--cut {
   color: $danger;
+}
+
+.row__value--money {
+  color: $danger;
+  font-weight: 700;
 }
 
 .row__value--warn {

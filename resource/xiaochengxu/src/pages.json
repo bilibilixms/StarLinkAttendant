@@ -58,7 +58,7 @@
       "path": "pages/session/scan",
       "style": {
         "navigationStyle": "custom",
-        "navigationBarTitleText": "扫码上机"
+        "navigationBarTitleText": "直接上机"
       }
     },
     {

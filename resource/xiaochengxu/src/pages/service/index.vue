@@ -83,7 +83,7 @@ interface SvcItem {
 
 const CAFE_SERVICES: SvcItem[] = [
   { key: 'reserve', title: '预约订座', desc: '提前锁定位置', icon: 'svc-seat', color: '#3AC6C6' },
-  { key: 'scan', title: '扫码上机', desc: '一键光速开机', icon: 'svc-power', color: '#4A9BFF' },
+  { key: 'scan', title: '直接上机', desc: '选定机位即开机', icon: 'svc-power', color: '#4A9BFF' },
   { key: 'remote-end', title: '远程下机', desc: '挂机不误事', icon: 'svc-remote', color: '#5B9BFF' },
   { key: 'order-food', title: '自助点餐', desc: '一键下单送到位', icon: 'svc-food', color: '#5FD3B0' },
   { key: 'recharge', title: '在线充值', desc: '在线充值享优惠', icon: 'svc-wallet', color: '#3AC6C6' },
@@ -140,22 +140,16 @@ function onServiceTap(item: SvcItem): void {
   }
 }
 
-/** 扫码上机 */
+/** 直接上机：跳转到选座页，点击空闲机位即开台 */
 function scanToStart(): void {
   if (!user.isLogin) {
     goLogin('/pages/service/index')
     return
   }
-  uni.scanCode({
-    scanType: ['qrCode'],
-    success: (res) => navTo(`/pages/session/scan?qr=${encodeURIComponent(res.result || '')}`),
-    fail: (err) => {
-      if (!/cancel/i.test(String(err?.errMsg))) toast('扫码失败，请重试')
-    },
-  })
+  navTo('/pages/session/scan')
 }
 
-/** 远程下机：有会话则确认下机，否则去扫码上机 */
+/** 远程下机：有会话则确认下机，否则去上机 */
 async function onRemoteEnd(): Promise<void> {
   if (!user.isLogin) {
     goLogin('/pages/service/index')
@@ -225,7 +219,7 @@ function onHeadset(): void {
         </view>
         <view class="reserve-card__actions">
           <AppButton type="ghost" size="sm" @tap="cancelReservation">取消预约</AppButton>
-          <AppButton type="primary" size="sm" @tap="scanToStart">扫码上机</AppButton>
+          <AppButton type="primary" size="sm" @tap="scanToStart">直接上机</AppButton>
         </view>
       </template>
 
