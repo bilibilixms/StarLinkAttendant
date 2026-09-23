@@ -134,6 +134,13 @@ const router = createRouter({
           component: () => import('@/modules/marketing/views/IntegrationConfig.vue'),
           meta: { title: '第三方集成', icon: 'settings' },
         },
+        // ========== AI 智能助手 ==========
+        {
+          path: 'ai',
+          name: 'ai',
+          component: () => import('@/modules/ai/views/AiChatView.vue'),
+          meta: { title: '智能助手', icon: 'robot' },
+        },
       ],
     },
   ],

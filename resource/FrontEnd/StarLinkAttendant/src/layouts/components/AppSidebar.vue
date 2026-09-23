@@ -7,7 +7,7 @@ import {
   ShoppingCart, Goods, DataAnalysis, Promotion, Setting,
   Management, Menu as MenuIcon, Document, Bell,
   Plus, Wallet, Trophy, Star, Warning, View, Cpu,
-  Calendar, SwitchButton
+  Calendar, SwitchButton, ChatLineSquare
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
@@ -148,6 +148,11 @@ const handleMenuSelect = (index: string) => {
         <el-menu-item index="/integration">
           <el-icon><Setting /></el-icon>
           <template #title>第三方集成</template>
+        </el-menu-item>
+
+        <el-menu-item index="/ai">
+          <el-icon><ChatLineSquare /></el-icon>
+          <template #title>智能助手</template>
         </el-menu-item>
       </el-menu>
     </el-scrollbar>

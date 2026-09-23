@@ -14,6 +14,7 @@ import { onShow, onHide, onUnload } from '@dcloudio/uni-app'
 import AppIcon from '@/components/AppIcon.vue'
 import AppStatusBar from '@/components/AppStatusBar.vue'
 import AppTabBar from '@/components/AppTabBar.vue'
+import AiFloatBall from '@/components/AiFloatBall.vue'
 import { useUserStore } from '@/stores/user'
 import { navTo, goLogin } from '@/utils/nav'
 import { toast, toastSuccess } from '@/utils/ui'
@@ -305,6 +306,7 @@ function onGiftBanner(): void {
     </view>
 
     <AppTabBar current="mine" />
+    <AiFloatBall />
   </view>
 </template>
 

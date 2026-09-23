@@ -215,6 +215,13 @@
         "navigationStyle": "custom",
         "navigationBarTitleText": "在线客服"
       }
+    },
+    {
+      "path": "pages/ai/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "AI 智能助手"
+      }
     }
   ],
   "globalStyle": {

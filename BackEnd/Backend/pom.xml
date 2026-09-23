@@ -27,6 +27,8 @@
         <module>starlink-module-cashier</module>
         <module>starlink-module-report</module>
         <module>starlink-module-marketing</module>
+        <module>cafe-module-Rag</module>
+        <module>cafe-module-ai</module>
         <module>starlink-starter</module>
     </modules>
 
@@ -88,6 +90,18 @@
             <dependency>
                 <groupId>com.starlink</groupId>
                 <artifactId>starlink-module-marketing</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- ==================== AI / RAG 模块 ==================== -->
+            <dependency>
+                <groupId>com.starlink</groupId>
+                <artifactId>cafe-module-Rag</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.starlink</groupId>
+                <artifactId>cafe-module-ai</artifactId>
                 <version>${project.version}</version>
             </dependency>
 

@@ -13,6 +13,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppStatusBar from '@/components/AppStatusBar.vue'
 import AppTabBar from '@/components/AppTabBar.vue'
+import AiFloatBall from '@/components/AiFloatBall.vue'
 import { reservationApi } from '@/api'
 import { useUserStore } from '@/stores/user'
 import { useAppStore } from '@/stores/app'
@@ -277,6 +278,7 @@ function onHeadset(): void {
     </view>
 
     <AppTabBar current="service" />
+    <AiFloatBall />
   </view>
 </template>
 

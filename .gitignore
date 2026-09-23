@@ -55,6 +55,7 @@ start-backend.bat
 
 # ==================== Uploads & Data ====================
 uploads/
+**/uploaded/
 *.sql.bak
 *.db
 *.sqlite
@@ -70,3 +71,6 @@ desktop.ini
 
 # ==================== Local AI / OMC ====================
 .omc/
+
+# MinerU 测试输入文档（不入库）
+**/minerU/input-dir/

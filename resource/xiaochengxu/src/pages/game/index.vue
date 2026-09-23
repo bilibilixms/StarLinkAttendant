@@ -13,6 +13,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppStatusBar from '@/components/AppStatusBar.vue'
 import AppTabBar from '@/components/AppTabBar.vue'
+import AiFloatBall from '@/components/AiFloatBall.vue'
 import GameLogo from '@/components/GameLogo.vue'
 import StateView from '@/components/StateView.vue'
 import { gameApi } from '@/api'
@@ -240,6 +241,7 @@ function onViewAll(): void {
     </view>
 
     <AppTabBar current="game" />
+    <AiFloatBall />
   </view>
 </template>
 

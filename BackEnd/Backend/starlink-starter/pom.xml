@@ -49,6 +49,16 @@
             <artifactId>starlink-module-marketing</artifactId>
         </dependency>
 
+        <!-- ==================== AI 智能助手 / RAG 知识库 ==================== -->
+        <dependency>
+            <groupId>com.starlink</groupId>
+            <artifactId>cafe-module-ai</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.starlink</groupId>
+            <artifactId>cafe-module-Rag</artifactId>
+        </dependency>
+
         <!-- ==================== 基础设施依赖 ==================== -->
         <!-- MySQL 驱动 -->
         <dependency>

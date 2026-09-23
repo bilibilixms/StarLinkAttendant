@@ -13,6 +13,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppStatusBar from '@/components/AppStatusBar.vue'
 import AppTabBar from '@/components/AppTabBar.vue'
+import AiFloatBall from '@/components/AiFloatBall.vue'
 import BannerSwiper from '@/components/BannerSwiper.vue'
 import SectionHeader from '@/components/SectionHeader.vue'
 import StateView from '@/components/StateView.vue'
@@ -401,6 +402,7 @@ function onStoreTap(s: Store): void {
     </view>
 
     <AppTabBar current="home" />
+    <AiFloatBall />
   </view>
 </template>
 

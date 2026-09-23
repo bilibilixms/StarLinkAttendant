@@ -11,6 +11,7 @@ import AppIcon from '@/components/AppIcon.vue'
 import AppButton from '@/components/AppButton.vue'
 import AppStatusBar from '@/components/AppStatusBar.vue'
 import AppTabBar from '@/components/AppTabBar.vue'
+import AiFloatBall from '@/components/AiFloatBall.vue'
 import CommunityPost from '@/components/CommunityPost.vue'
 import GameLogo from '@/components/GameLogo.vue'
 import StateView from '@/components/StateView.vue'
@@ -244,6 +245,7 @@ async function onJoinTeam(team: TeamRecruit): Promise<void> {
     </view>
 
     <AppTabBar current="community" />
+    <AiFloatBall />
   </view>
 </template>
 

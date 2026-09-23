@@ -44,6 +44,8 @@ public class SecurityConfig {
                         // ---------- 公开接口 ----------
                         .requestMatchers("/api/auth/login", "/api/auth/refresh").permitAll()
                         .requestMatchers("/api/member/login", "/api/member/register").permitAll()
+                        // AI 助手：允许匿名访问；登录后前端会附带用户信息，由 AI 模块注入提示词
+                        .requestMatchers("/api/ai/**").permitAll()
                         .requestMatchers("/actuator/**").permitAll()
                         .requestMatchers("/uploads/**").permitAll()
 
