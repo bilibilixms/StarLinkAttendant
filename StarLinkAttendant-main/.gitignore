@@ -1,0 +1,72 @@
+# Temp of AI
+/.writing
+
+# ==================== Maven / Java ====================
+target/
+*.jar
+*.war
+*.ear
+*.class
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ==================== Node.js ====================
+node_modules/
+dist/
+dist-ssr/
+coverage/
+*.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# ==================== IDE ====================
+*.iml
+*.iws
+*.ipr
+**/.idea/
+.vscode/
+!.vscode/extensions.json
+
+# ==================== Eclipse / NetBeans ====================
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+.nbproject/private/
+nbbuild/
+nbdist/
+.nb-gradle/
+build/
+
+# ==================== Logs ====================
+logs/
+*.log
+
+# ==================== Environment ====================
+.env.local
+.env.*.local
+start-backend.bat
+
+# ==================== Uploads & Data ====================
+uploads/
+*.sql.bak
+*.db
+*.sqlite
+*.sqlite3
+
+# ==================== OS ====================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==================== Package Lock (optional, uncomment to ignore) ====================
+# package-lock.json
+
+# ==================== Local AI / OMC ====================
+.omc/

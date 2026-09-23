@@ -1,0 +1,16 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.starlink.system.mapper.RoleMapper">
+
+    <select id="selectByCode" resultType="com.starlink.system.entity.Role">
+        SELECT * FROM role WHERE role_code = #{roleCode} AND deleted_at IS NULL
+    </select>
+
+    <select id="selectByEmployeeId" resultType="com.starlink.system.entity.Role">
+        SELECT r.* FROM role r
+        INNER JOIN employee_role er ON r.id = er.role_id
+        WHERE er.employee_id = #{employeeId} AND r.deleted_at IS NULL
+        ORDER BY r.sort_order
+    </select>
+
+</mapper>

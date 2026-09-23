@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven.apache.org/xsd/maven-4.0.0">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>com.starlink</groupId>
+        <artifactId>parent</artifactId>
+        <version>1.0-SNAPSHOT</version>
+        <relativePath/>
+    </parent>
+
+    <artifactId>cafe-module-ai</artifactId>
+    <name>cafe-module-ai</name>
+    <description>AI 智能助手模块 - 集成大语言模型提供对话能力（自网吧管理系统复制接入）</description>
+
+    <properties>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+
+    <dependencies>
+        <!-- 内部公共模块（对应 StarLink 的 starlink-common） -->
+        <dependency>
+            <groupId>com.starlink</groupId>
+            <artifactId>starlink-common</artifactId>
+        </dependency>
+
+        <!-- RAG 向量检索模块：AI 对话时调用 RagVectorService 做知识库语义检索 -->
+        <dependency>
+            <groupId>com.starlink</groupId>
+            <artifactId>cafe-module-Rag</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <!-- Spring Web（提供 RestController、WebClient） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- WebFlux（提供 WebClient + SSE 流式响应支持） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-webflux</artifactId>
+        </dependency>
+
+        <!-- JDBC（提供 JdbcTemplate，用于执行 SQL 和查询数据库元数据） -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+
+        <!-- Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+        <dependency>
+            <groupId>jakarta.validation</groupId>
+            <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+    </dependencies>
+
+</project>

@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.starlink.member.mapper.MemberPointsLogMapper">
+
+    <select id="selectPointsPage" resultType="com.starlink.member.dto.resp.PointsRecordResponse">
+        SELECT
+            id, member_id, points, balance_before, balance_after,
+            biz_type, biz_id, remark, expire_at, created_at
+        FROM member_points_log
+        WHERE deleted_at IS NULL
+        <if test="memberId != null">
+            AND member_id = #{memberId}
+        </if>
+        <if test="bizType != null">
+            AND biz_type = #{bizType}
+        </if>
+        <if test="startTime != null and startTime != ''">
+            AND created_at &gt;= #{startTime}
+        </if>
+        <if test="endTime != null and endTime != ''">
+            AND created_at &lt;= #{endTime}
+        </if>
+        ORDER BY created_at DESC
+    </select>
+
+</mapper>

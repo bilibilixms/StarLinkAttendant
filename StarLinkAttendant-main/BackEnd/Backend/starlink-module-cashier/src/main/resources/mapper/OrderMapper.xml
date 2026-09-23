@@ -1,0 +1,82 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.starlink.cashier.mapper.OrderMapper">
+
+    <select id="selectOrderPage" resultType="com.starlink.cashier.dto.response.OrderResponse">
+        SELECT
+            o.id,
+            o.order_no,
+            o.order_type,
+            o.member_id,
+            m.real_name AS member_name,
+            o.session_id,
+            o.total_amount,
+            o.discount_amount,
+            o.payable_amount,
+            o.paid_amount,
+            o.status,
+            o.remark,
+            o.operator_id,
+            e.real_name AS operator_name,
+            o.paid_at,
+            o.created_at,
+            o.updated_at
+        FROM orders o
+        LEFT JOIN member m ON o.member_id = m.id AND m.deleted_at IS NULL
+        LEFT JOIN employee e ON o.operator_id = e.id AND e.deleted_at IS NULL
+        WHERE o.deleted_at IS NULL
+        <if test="orderNo != null and orderNo != ''">
+            AND o.order_no LIKE CONCAT('%', #{orderNo}, '%')
+        </if>
+        <if test="orderType != null">
+            AND o.order_type = #{orderType}
+        </if>
+        <if test="status != null">
+            AND o.status = #{status}
+        </if>
+        <if test="statusList != null and statusList.size() > 0">
+            AND o.status IN
+            <foreach collection="statusList" item="s" open="(" separator="," close=")">
+                #{s}
+            </foreach>
+        </if>
+        <if test="memberId != null">
+            AND o.member_id = #{memberId}
+        </if>
+        <if test="startTime != null and startTime != ''">
+            AND o.paid_at &gt;= #{startTime}
+        </if>
+        <if test="endTime != null and endTime != ''">
+            AND o.paid_at &lt;= #{endTime}
+        </if>
+        ORDER BY o.created_at DESC
+    </select>
+
+    <select id="selectDetailById" resultType="com.starlink.cashier.dto.response.OrderDetailResponse">
+        SELECT
+            o.id,
+            o.order_no,
+            o.order_type,
+            o.member_id,
+            m.real_name AS member_name,
+            o.session_id,
+            o.total_amount,
+            o.discount_amount,
+            o.payable_amount,
+            o.paid_amount,
+            o.status,
+            o.remark,
+            o.operator_id,
+            e.real_name AS operator_name,
+            o.paid_at,
+            o.created_at,
+            o.updated_at
+        FROM orders o
+        LEFT JOIN member m ON o.member_id = m.id AND m.deleted_at IS NULL
+        LEFT JOIN employee e ON o.operator_id = e.id AND e.deleted_at IS NULL
+        WHERE o.id = #{id}
+          AND o.deleted_at IS NULL
+    </select>
+
+</mapper>
