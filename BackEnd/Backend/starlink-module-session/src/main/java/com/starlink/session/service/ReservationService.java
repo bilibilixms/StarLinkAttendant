@@ -161,7 +161,6 @@ public class ReservationService {
      */
     public PageResult<ReservationResponse> listReservations(PageQuery pageQuery,
                                                              String memberName,
-                                                             String computerNo,
                                                              Byte status,
                                                              LocalDate reservationDate) {
         // 构建查询条件
@@ -175,19 +174,14 @@ public class ReservationService {
             wrapper.eq(Reservation::getReservationDate, reservationDate);
         }
 
-        // 如果传了机位编号过滤，先查出匹配的机位 ID 列表
-        if (computerNo != null && !computerNo.isEmpty()) {
-            List<Computer> computers = computerMapper.selectList(
-                    new LambdaQueryWrapper<Computer>()
-                            .like(Computer::getComputerNo, computerNo));
-            List<Long> computerIds = computers.stream().map(Computer::getId).toList();
-            if (computerIds.isEmpty()) {
+        // 会员姓名过滤：跨模块查 member 表，先取出匹配的 memberId 列表再过滤
+        if (memberName != null && !memberName.isEmpty()) {
+            List<Long> memberIds = reservationMapper.selectMemberIdsByName(memberName);
+            if (memberIds.isEmpty()) {
                 return PageResult.empty(pageQuery.getPage(), pageQuery.getSize());
             }
-            wrapper.in(Reservation::getComputerId, computerIds);
+            wrapper.in(Reservation::getMemberId, memberIds);
         }
-
-        // 注：memberName 过滤需要跨模块查询，此处暂不支持，后续可集成
 
         Page<Reservation> page = new Page<>(pageQuery.getPage(), pageQuery.getSize());
         IPage<Reservation> result = reservationMapper.selectPage(page, wrapper);

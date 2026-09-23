@@ -27,4 +27,10 @@ public interface ReservationMapper extends BaseMapper<Reservation> {
      */
     @Select("<script>SELECT id, real_name AS realName, phone FROM member WHERE deleted_at IS NULL AND id IN <foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach></script>")
     List<Map<String, Object>> selectMemberInfoBatch(@Param("ids") List<Long> ids);
+
+    /**
+     * 根据会员姓名模糊查询会员 ID 列表（跨模块查询 member 表）。
+     */
+    @Select("SELECT id FROM member WHERE deleted_at IS NULL AND real_name LIKE CONCAT('%', #{name}, '%')")
+    List<Long> selectMemberIdsByName(@Param("name") String name);
 }

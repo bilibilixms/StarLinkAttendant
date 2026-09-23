@@ -33,11 +33,10 @@ public class ReservationController {
     public Result<PageResult<ReservationResponse>> listReservations(
             PageQuery pageQuery,
             @RequestParam(required = false) String memberName,
-            @RequestParam(required = false) String computerNo,
             @RequestParam(required = false) Byte status,
             @RequestParam(required = false) LocalDate reservationDate) {
         return Result.ok(reservationService.listReservations(
-                pageQuery, memberName, computerNo, status, reservationDate));
+                pageQuery, memberName, status, reservationDate));
     }
 
     /**

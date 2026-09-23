@@ -40,6 +40,12 @@ public interface SessionMapper extends BaseMapper<Session> {
     BigDecimal selectMemberBalance(@Param("memberId") Long memberId);
 
     /**
+     * 根据会员姓名模糊查询会员 ID 列表（跨模块查询 member 表）。
+     */
+    @Select("SELECT id FROM member WHERE deleted_at IS NULL AND real_name LIKE CONCAT('%', #{name}, '%')")
+    List<Long> selectMemberIdsByName(@Param("name") String name);
+
+    /**
      * 查询费率方案下的费率明细（跨模块查询 tariff_rate 表）。
      *
      * @param planId 费率方案 ID

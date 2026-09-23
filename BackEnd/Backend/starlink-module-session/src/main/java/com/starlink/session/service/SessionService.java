@@ -556,7 +556,14 @@ public class SessionService {
             wrapper.in(Session::getComputerId, computerIds);
         }
 
-        // 注：memberName 过滤需要跨模块查询，此处暂不支持，后续可集成
+        // 会员姓名过滤：跨模块查 member 表，先取出匹配的 memberId 列表再过滤
+        if (memberName != null && !memberName.isEmpty()) {
+            List<Long> memberIds = sessionMapper.selectMemberIdsByName(memberName);
+            if (memberIds.isEmpty()) {
+                return PageResult.empty(pageQuery.getPage(), pageQuery.getSize());
+            }
+            wrapper.in(Session::getMemberId, memberIds);
+        }
 
         Page<Session> page = new Page<>(pageQuery.getPage(), pageQuery.getSize());
         IPage<Session> result = sessionMapper.selectPage(page, wrapper);
