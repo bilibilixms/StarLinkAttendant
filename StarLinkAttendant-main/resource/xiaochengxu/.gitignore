@@ -1,7 +1,0 @@
-node_modules/
-dist/
-unpackage/
-.vite/
-*.local
-.DS_Store
-.shots/
