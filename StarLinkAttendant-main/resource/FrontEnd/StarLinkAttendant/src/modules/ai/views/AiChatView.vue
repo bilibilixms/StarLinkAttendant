@@ -6,7 +6,7 @@ import type { ChatMessage, ChatRequest, ThinkingStep, MinerUFileInfo, AiSessionR
 import newChatIcon from '../img_data/new-chat.png'
 import historyIcon from '../img_data/lishihuihua.png'
 import uploadIcon from '../img_data/shangchuan.png'
-import aiAvatarImg from '../img_data/a-aizhushou_huaban1fuben15_huaban1fuben15-copy.png'
+import aiAvatarImg from '../img_data/Ai头像.webp'
 import { ElMessage } from 'element-plus'
 
 // 用于中断流式请求
@@ -610,7 +610,7 @@ function handleKeydown(e: KeyboardEvent) {
     <div class="chat-header">
       <div class="header-left">
         <el-icon :size="22" color="var(--color-primary)"><ChatLineSquare /></el-icon>
-        <h3>AI 智能助手</h3>
+        <h3>星络娘</h3>
         <el-tag size="small" effect="plain" :type="serverConfigured || settings.apiKey ? 'success' : 'warning'">
           {{ serverConfigured || settings.apiKey ? '在线' : '未配置Key' }}
         </el-tag>
@@ -641,8 +641,8 @@ function handleKeydown(e: KeyboardEvent) {
     <!-- 消息区域 -->
     <div ref="chatBoxRef" class="chat-messages">
       <div v-if="messages.length === 0" class="welcome">
-        <el-icon :size="48" color="var(--color-primary-light)"><ChatLineSquare /></el-icon>
-        <h4>星络灵侍馆 AI 助手</h4>
+        <img :src="aiAvatarImg" class="welcome-avatar" alt="星络娘" />
+        <h4>星络娘</h4>
         <p>我可以帮您解答关于上机管理、会员、计费、库存、经营分析等问题。</p>
         <div class="quick-tips">
           <el-tag v-for="tip in ['今日上机率怎么查？', '如何配置计费方案？', '库存预警规则是什么？']"
@@ -883,6 +883,7 @@ function handleKeydown(e: KeyboardEvent) {
 .chat-messages { flex: 1; overflow-y: auto; padding: 20px 24px; background: #f8fafc; scroll-behavior: smooth; }
 .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center;
   height: 100%; color: var(--color-text-secondary); text-align: center; }
+.welcome-avatar { width: 96px; height: 96px; border-radius: 50%; }
 .welcome h4 { margin: 16px 0 8px; font-size: 18px; color: var(--color-text-primary); }
 .welcome p { margin: 0 0 20px; font-size: 14px; max-width: 400px; }
 .quick-tips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }

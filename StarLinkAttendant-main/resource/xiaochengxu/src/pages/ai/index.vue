@@ -6,7 +6,7 @@
         <view v-if="canGoBack" class="nav-back" @click="goBack">
           <text class="back-icon">‹</text>
         </view>
-        <view class="nav-title">AI 智能助手</view>
+        <view class="nav-title">星络娘</view>
         <view class="nav-actions">
           <view class="nav-btn" @click="newSession">
             <image class="nav-icon" src="/static/ai_img/new-chat.png" mode="aspectFit" />
@@ -30,9 +30,9 @@
     >
       <!-- 欢迎页 -->
       <view v-if="!messages.length" class="welcome">
-        <view class="welcome-icon">🤖</view>
-        <view class="welcome-title">星络灵侍馆智能助手</view>
-        <view class="welcome-desc">您好，我是星络灵侍馆智能助手，可以帮您查询空闲电脑、上机收费、会员权益等问题</view>
+        <image class="welcome-avatar" src="/static/ai_img/ai-avatar.webp" mode="aspectFit" />
+        <view class="welcome-title">星络娘</view>
+        <view class="welcome-desc">您好，我是星络娘，可以帮您查询空闲电脑、上机收费、会员权益等问题</view>
         <view class="quick-tips">
           <view
             v-for="tip in quickTips"
@@ -53,7 +53,7 @@
         <image
           v-if="m.role === 'assistant'"
           class="avatar assistant"
-          src="/static/ai_img/a-aizhushou_huaban1fuben15_huaban1fuben15-copy.png"
+          src="/static/ai_img/ai-avatar.webp"
           mode="aspectFill"
         />
         <view v-else class="avatar user">我</view>
@@ -813,8 +813,10 @@ onMounted(() => {
   align-items: center;
   text-align: center;
 }
-.welcome-icon {
-  font-size: 100rpx;
+.welcome-avatar {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 50%;
 }
 .welcome-title {
   margin-top: 24rpx;

@@ -10,7 +10,7 @@
   >
     <image
       class="ai-float-ball__img"
-      src="/static/ai_img/a-aizhushou_huaban1fuben15_huaban1fuben15-copy.png"
+      src="/static/ai_img/ai-avatar.webp"
       mode="aspectFill"
     />
     <view class="ai-float-ball__badge">AI</view>
