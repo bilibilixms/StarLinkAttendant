@@ -21,7 +21,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +43,10 @@ public class ReservationService {
 
     private final ReservationMapper reservationMapper;
     private final ComputerMapper computerMapper;
+    /**
+     * 时间来源：与上机/计费模块同一时钟，保证预约状态流转时间口径一致。
+     */
+    private final Clock clock;
 
     /**
      * 创建预约（COM-05）。
@@ -105,6 +111,49 @@ public class ReservationService {
         reservation.setCancelReason(cancelReason);
         reservationMapper.updateById(reservation);
         log.info("取消预约: id={}", id);
+    }
+
+    /**
+     * 会员到店上机后，将其有效的预约自动置为「已上机」（COM-02 上机联动预约状态）。
+     * <p>
+     * 匹配规则：同一会员、状态为待确认(0)/已确认(1)、预约尚未结束（endTime >= now），
+     * 允许提前上机（即使预约开始时间还未到也匹配）；预约未指定机位（到店分配）
+     * 或指定机位与实际上机机位一致；取开始时间最早的一条，避免一天多场预约时误关联。
+     * 无匹配预约（散客/无预约直接上机）时静默返回，不影响上机。
+     * <p>
+     * 本方法加入上机事务（默认 REQUIRED 传播），预约更新失败会随上机一起回滚，
+     * 避免出现「已开机但预约仍待确认」的不一致。
+     *
+     * @param memberId   上机会员 ID（散客为 null，直接忽略）
+     * @param computerId 实际开机的机位 ID
+     * @param sessionId  本次上机会话 ID
+     */
+    @Transactional
+    public void markCheckedIn(Long memberId, Long computerId, Long sessionId) {
+        if (memberId == null) {
+            return;
+        }
+        LocalDateTime now = LocalDateTime.now(clock);
+
+        Reservation reservation = reservationMapper.selectOne(
+                new LambdaQueryWrapper<Reservation>()
+                        .eq(Reservation::getMemberId, memberId)
+                        .in(Reservation::getStatus, 0, 1) // 待确认、已确认
+                        .ge(Reservation::getEndTime, now) // 预约尚未结束（允许提前上机，即使开始时间还未到）
+                        .and(w -> w.isNull(Reservation::getComputerId) // 到店分配
+                                .or().eq(Reservation::getComputerId, computerId)) // 或机位一致
+                        .orderByAsc(Reservation::getStartTime)
+                        .last("LIMIT 1"));
+        if (reservation == null) {
+            return;
+        }
+
+        reservation.setStatus((byte) 2); // 已上机
+        reservation.setCheckedInAt(now);
+        reservation.setSessionId(sessionId);
+        reservationMapper.updateById(reservation);
+        log.info("预约已转为已上机: reservationId={}, reservationNo={}, memberId={}, sessionId={}",
+                reservation.getId(), reservation.getReservationNo(), memberId, sessionId);
     }
 
     /**

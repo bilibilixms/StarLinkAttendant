@@ -53,6 +53,10 @@ public class SessionService {
     private final ComputerMapper computerMapper;
     private final BillingRecordMapper billingRecordMapper;
     /**
+     * 预约管理服务：上机成功后联动把会员当天有效预约（待确认/已确认）置为「已上机」。
+     */
+    private final ReservationService reservationService;
+    /**
      * 统一计费器：所有费用计算（下机/强制下机/实时估价）走同一套规则，
      * 避免与 SessionBillingScheduler、会员端页面口径漂移。
      */
@@ -137,6 +141,10 @@ public class SessionService {
         // 6. 更新机位状态为使用中
         computer.setStatus((byte) 1);
         computerMapper.updateById(computer);
+
+        // 7. 联动预约状态：若该会员当天有有效预约（待确认/已确认），自动转为「已上机」
+        //    管理端开机与小程序会员自助上机均经过本方法，保证两条入口口径一致
+        reservationService.markCheckedIn(request.getMemberId(), request.getComputerId(), session.getId());
 
         log.info("上机成功: sessionNo={}, memberId={}, computerId={}",
                 session.getSessionNo(), request.getMemberId(), request.getComputerId());
