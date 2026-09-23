@@ -1,0 +1,236 @@
+{
+  "easycom": {
+    "autoscan": true
+  },
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "首页"
+      }
+    },
+    {
+      "path": "pages/service/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "服务"
+      }
+    },
+    {
+      "path": "pages/game/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "游戏"
+      }
+    },
+    {
+      "path": "pages/community/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "社区",
+        "enablePullDownRefresh": true,
+        "backgroundTextStyle": "dark"
+      }
+    },
+    {
+      "path": "pages/mine/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "我的"
+      }
+    },
+    {
+      "path": "pages/auth/login",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "登录"
+      }
+    },
+    {
+      "path": "pages/reservation/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "预约订座"
+      }
+    },
+    {
+      "path": "pages/session/scan",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "直接上机"
+      }
+    },
+    {
+      "path": "pages/session/current",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "当前上机"
+      }
+    },
+    {
+      "path": "pages/recharge/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "在线充值"
+      }
+    },
+    {
+      "path": "pages/product/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "自助点餐"
+      }
+    },
+    {
+      "path": "pages/product/detail",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "商品详情"
+      }
+    },
+    {
+      "path": "pages/cart/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "购物车"
+      }
+    },
+    {
+      "path": "pages/order/confirm",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "确认订单"
+      }
+    },
+    {
+      "path": "pages/order/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "我的订单",
+        "enablePullDownRefresh": true
+      }
+    },
+    {
+      "path": "pages/order/detail",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "订单详情"
+      }
+    },
+    {
+      "path": "pages/coupon/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "我的卡券"
+      }
+    },
+    {
+      "path": "pages/points/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "我的积分"
+      }
+    },
+    {
+      "path": "pages/consume/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "消费记录"
+      }
+    },
+    {
+      "path": "pages/profile/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "个人资料"
+      }
+    },
+    {
+      "path": "pages/settings/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "设置"
+      }
+    },
+    {
+      "path": "pages/feedback/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "意见反馈"
+      }
+    },
+    {
+      "path": "pages/game/task",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "任务详情"
+      }
+    },
+    {
+      "path": "pages/community/detail",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "帖子详情"
+      }
+    },
+    {
+      "path": "pages/store/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "选择门店"
+      }
+    },
+    {
+      "path": "pages/hotel/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "电竞酒店"
+      }
+    },
+    {
+      "path": "pages/activity/treasure",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "天天夺宝"
+      }
+    },
+    {
+      "path": "pages/welfare/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "会员福利"
+      }
+    },
+    {
+      "path": "pages/favorite/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "我的收藏"
+      }
+    },
+    {
+      "path": "pages/service/customer",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "在线客服"
+      }
+    },
+    {
+      "path": "pages/ai/index",
+      "style": {
+        "navigationStyle": "custom",
+        "navigationBarTitleText": "AI 智能助手"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationStyle": "custom",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "星络灵侍馆",
+    "navigationBarBackgroundColor": "#F1F3F9",
+    "backgroundColor": "#F1F3F9",
+    "backgroundColorTop": "#F1F3F9",
+    "backgroundColorBottom": "#F1F3F9"
+  }
+}

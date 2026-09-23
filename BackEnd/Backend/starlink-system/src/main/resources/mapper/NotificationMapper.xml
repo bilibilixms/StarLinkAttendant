@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.starlink.system.mapper.NotificationMapper">
+
+    <select id="selectNoticePage" resultType="com.starlink.system.dto.resp.NoticeResponse">
+        SELECT
+            id, notify_type, title, content, target_type, target_ids,
+            is_read, published_at, expired_at, created_at, updated_at
+        FROM notification
+        WHERE deleted_at IS NULL
+        <if test="title != null and title != ''">
+            AND title LIKE CONCAT('%', #{title}, '%')
+        </if>
+        <if test="notifyType != null">
+            AND notify_type = #{notifyType}
+        </if>
+        ORDER BY created_at DESC
+    </select>
+
+</mapper>

@@ -1,0 +1,111 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.starlink</groupId>
+        <artifactId>parent</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>starlink-starter</artifactId>
+    <name>starlink-starter</name>
+    <description>启动入口层 - 聚合所有模块、全局配置、应用启动类</description>
+
+    <dependencies>
+        <!-- ==================== 内部模块依赖 ==================== -->
+        <dependency>
+            <groupId>com.starlink</groupId>
+            <artifactId>starlink-common</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.starlink</groupId>
+            <artifactId>starlink-system</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.starlink</groupId>
+            <artifactId>starlink-module-member</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.starlink</groupId>
+            <artifactId>starlink-module-session</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.starlink</groupId>
+            <artifactId>starlink-module-product</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.starlink</groupId>
+            <artifactId>starlink-module-cashier</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.starlink</groupId>
+            <artifactId>starlink-module-report</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.starlink</groupId>
+            <artifactId>starlink-module-marketing</artifactId>
+        </dependency>
+
+        <!-- ==================== AI 智能助手 / RAG 知识库 ==================== -->
+        <dependency>
+            <groupId>com.starlink</groupId>
+            <artifactId>cafe-module-ai</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.starlink</groupId>
+            <artifactId>cafe-module-Rag</artifactId>
+        </dependency>
+
+        <!-- ==================== 基础设施依赖 ==================== -->
+        <!-- MySQL 驱动 -->
+        <dependency>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- 连接池（HikariCP 由 Spring Boot 默认提供） -->
+
+        <!-- Actuator 健康检查 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- Lombok -->
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- Test -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <!-- 唯一配置 spring-boot-maven-plugin 的模块，输出可执行 JAR -->
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

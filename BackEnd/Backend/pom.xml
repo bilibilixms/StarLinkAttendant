@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.4.1</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>com.starlink</groupId>
+    <artifactId>parent</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    <name>StarLinkAttendant Backend</name>
+    <description>星络灵侍馆后端 - 模块化单体架构</description>
+
+    <modules>
+        <module>starlink-common</module>
+        <module>starlink-system</module>
+        <module>starlink-module-member</module>
+        <module>starlink-module-session</module>
+        <module>starlink-module-product</module>
+        <module>starlink-module-cashier</module>
+        <module>starlink-module-report</module>
+        <module>starlink-module-marketing</module>
+        <module>cafe-module-Rag</module>
+        <module>cafe-module-ai</module>
+        <module>starlink-starter</module>
+    </modules>
+
+    <properties>
+        <java.version>17</java.version>
+        <maven.compiler.source>17</maven.compiler.source>
+        <maven.compiler.target>17</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+
+        <!-- 内部模块版本 -->
+        <project.version>1.0-SNAPSHOT</project.version>
+
+        <!-- 第三方依赖版本 -->
+        <mybatis-plus.version>3.5.5</mybatis-plus.version>
+        <hutool.version>5.8.25</hutool.version>
+        <aliyun-oss.version>3.17.4</aliyun-oss.version>
+        <poi.version>5.2.5</poi.version>
+    </properties>
+
+    <!-- 依赖版本管理（子模块按需引用，不会自动引入） -->
+    <dependencyManagement>
+        <dependencies>
+            <!-- ==================== 内部模块 ==================== -->
+            <dependency>
+                <groupId>com.starlink</groupId>
+                <artifactId>starlink-common</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.starlink</groupId>
+                <artifactId>starlink-system</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.starlink</groupId>
+                <artifactId>starlink-module-member</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.starlink</groupId>
+                <artifactId>starlink-module-session</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.starlink</groupId>
+                <artifactId>starlink-module-product</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.starlink</groupId>
+                <artifactId>starlink-module-cashier</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.starlink</groupId>
+                <artifactId>starlink-module-report</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.starlink</groupId>
+                <artifactId>starlink-module-marketing</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- ==================== AI / RAG 模块 ==================== -->
+            <dependency>
+                <groupId>com.starlink</groupId>
+                <artifactId>cafe-module-Rag</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.starlink</groupId>
+                <artifactId>cafe-module-ai</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <!-- ==================== 第三方依赖 ==================== -->
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>cn.hutool</groupId>
+                <artifactId>hutool-all</artifactId>
+                <version>${hutool.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.aliyun.oss</groupId>
+                <artifactId>aliyun-sdk-oss</artifactId>
+                <version>${aliyun-oss.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.poi</groupId>
+                <artifactId>poi-ooxml</artifactId>
+                <version>${poi.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <pluginManagement>
+            <plugins>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <configuration>
+                        <source>${java.version}</source>
+                        <target>${java.version}</target>
+                        <encoding>${project.build.sourceEncoding}</encoding>
+                        <annotationProcessorPaths>
+                            <path>
+                                <groupId>org.projectlombok</groupId>
+                                <artifactId>lombok</artifactId>
+                                <version>1.18.38</version>
+                            </path>
+                        </annotationProcessorPaths>
+                    </configuration>
+                </plugin>
+                <!-- 升级 clean 插件修复 Windows 大小写不敏感文件系统导致的旧目录残留问题 -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-clean-plugin</artifactId>
+                    <version>3.4.0</version>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+        <plugins>
+            <!-- 编译前强制删除 classes 目录，防止 Windows 大小写不敏感文件系统缓存旧包名 -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>clean-classes-before-compile</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <delete dir="${project.build.outputDirectory}" includeemptydirs="true" failonerror="false"/>
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>
