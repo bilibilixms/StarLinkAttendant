@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { ref, reactive, computed, nextTick, onMounted, watch } from 'vue'
-import { ChatLineSquare, Promotion, Delete, Setting } from '@element-plus/icons-vue'
+import { ChatLineSquare, Promotion, Delete, Setting, Picture } from '@element-plus/icons-vue'
 import { sendChatStreamSSE, sendChat, getAiConfig, uploadMinerUDoc, listMinerUFiles, getMinerUFileContent, createAiSession, listAiSessions, getAiSessionDetail, addAiMessage, deleteAiSession, parseDbTime } from '../api'
 import type { ChatMessage, ChatRequest, ThinkingStep, MinerUFileInfo, AiSessionRow } from '../api'
 import newChatIcon from '../img_data/new-chat.png'
 import historyIcon from '../img_data/lishihuihua.png'
 import uploadIcon from '../img_data/shangchuan.png'
-import aiAvatarImg from '../img_data/a-aizhushou_huaban1fuben15_huaban1fuben15-copy.png'
+import aiAvatarImg from '../img_data/ai-avatar.webp'
 import { ElMessage } from 'element-plus'
 
 // 用于中断流式请求
@@ -27,6 +27,7 @@ function renderMarkdown(text: string): string {
 interface DisplayMessage {
   role: 'user' | 'assistant'
   content: string
+  image?: string
   loading?: boolean
   costMs?: number
   model?: string
@@ -384,15 +385,20 @@ async function handleSend() {
 }
 
 async function handleSendStream() {
-  const text = input.value.trim()
-  if (!text || sending.value) return
+  const userInput = input.value.trim()
+  const hasImage = !!selectedImage.value
+  if ((!userInput && !hasImage) || sending.value) return
 
+  const text = buildSendText(userInput)
+  const imageData = selectedImage.value
   sending.value = true
-  const userMsg: DisplayMessage = { role: 'user', content: text }
+  const userMsg: DisplayMessage = { role: 'user', content: text, image: imageData || undefined }
   messages.value.push(userMsg)
   const last = reactive({ role: 'assistant' as const, content: '', loading: true, thinkingSteps: [] as ThinkingStep[], showThinking: false, costMs: undefined as number | undefined, model: undefined as string | undefined })
   messages.value.push(last)
   input.value = ''
+  clearReferencedDoc()
+  clearSelectedImage()
   await scrollToBottom()
 
   // 用户提问即时入库（会话未建先建，保证"发了就入库"）
@@ -404,6 +410,7 @@ async function handleSendStream() {
   await sendChatStreamSSE(
     {
       message: text,
+      image: imageData || undefined,
       history: getHistory().slice(0, -1),
       ...getRequestOverrides(),
     },
@@ -526,12 +533,65 @@ async function previewMinerUFile(name: string) {
   }
 }
 
-/** 把文档提问填充到输入框 */
+/** 当前引用的文档（点击"提问"后设置，发送时拼到问题前） */
+const referencedDoc = ref<string>('')
+
+/** 清除文档引用 */
+function clearReferencedDoc() {
+  referencedDoc.value = ''
+}
+
+/** 待发送的图片（base64 dataURL） */
+const selectedImage = ref<string>('')
+const imageInputRef = ref<HTMLInputElement | null>(null)
+
+/** 点击图片按钮 → 打开文件选择 */
+function triggerImagePicker() {
+  imageInputRef.value?.click()
+}
+
+/** 选择图片后处理 */
+function onImageChange(e: Event) {
+  const target = e.target as HTMLInputElement
+  const file = target.files?.[0]
+  if (!file) return
+  if (!/^image\/(png|jpe?g|gif|webp)$/i.test(file.type)) {
+    ElMessage.warning('仅支持 PNG / JPG / GIF / WebP 图片')
+    return
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    ElMessage.warning('图片大小不能超过 5MB')
+    return
+  }
+  const reader = new FileReader()
+  reader.onload = (ev) => {
+    selectedImage.value = ev.target?.result as string
+  }
+  reader.readAsDataURL(file)
+  target.value = ''
+}
+
+/** 清除已选图片 */
+function clearSelectedImage() {
+  selectedImage.value = ''
+}
+
+/** 组合用户问题与文档引用：如果有引用文档，拼上前缀 */
+function buildSendText(userInput: string): string {
+  if (!referencedDoc.value) return userInput
+  return `请根据知识库中的《${referencedDoc.value}》回答：${userInput}`
+}
+
+/** 引用文档：设置引用标签，关闭弹窗，等用户自己输入问题后发送 */
 function askMinerUFile(name: string) {
   const base = name.replace(/\.md$/i, '')
-  input.value = `请根据知识库中的《${base}》回答：`
+  referencedDoc.value = base
   minerUVisible.value = false
-  handleSendStream()
+  minerUPreviewVisible.value = false
+  nextTick(() => {
+    const textarea = document.querySelector('.chat-input textarea') as HTMLTextAreaElement
+    textarea?.focus()
+  })
 }
 
 function formatFileSize(n: number): string {
@@ -582,8 +642,8 @@ function handleKeydown(e: KeyboardEvent) {
     <!-- 消息区域 -->
     <div ref="chatBoxRef" class="chat-messages">
       <div v-if="messages.length === 0" class="welcome">
-        <el-icon :size="48" color="var(--color-primary-light)"><ChatLineSquare /></el-icon>
-        <h4>星络灵侍馆 AI 助手</h4>
+        <img :src="aiAvatarImg" class="welcome-avatar" alt="星络娘" />
+        <h4>星络娘</h4>
         <p>我可以帮您解答关于上机管理、会员、计费、库存、经营分析等问题。</p>
         <div class="quick-tips">
           <el-tag v-for="tip in ['今日上机率怎么查？', '如何配置计费方案？', '库存预警规则是什么？']"
@@ -600,6 +660,10 @@ function handleKeydown(e: KeyboardEvent) {
           </el-avatar>
         </div>
         <div class="bubble">
+          <!-- 用户发送的图片 -->
+          <div v-if="msg.image" class="msg-image-wrapper">
+            <img :src="msg.image" class="msg-image" alt="用户发送的图片" />
+          </div>
           <!-- 思考过程（可折叠） -->
           <div v-if="msg.thinkingSteps && msg.thinkingSteps.length > 0" class="thinking-section">
             <div class="thinking-toggle" @click="msg.showThinking = !msg.showThinking">
@@ -622,7 +686,7 @@ function handleKeydown(e: KeyboardEvent) {
             </div>
           </div>
           <!-- 最终回答 -->
-          <div class="bubble-content" v-html="renderMarkdown(msg.content)" />
+          <div v-if="msg.content" class="bubble-content" v-html="renderMarkdown(msg.content)" />
           <div v-if="msg.loading" class="typing-indicator"><span></span><span></span><span></span></div>
           <div v-if="msg.costMs" class="meta-info">{{ msg.model }} · 耗时 {{ msg.costMs }}ms</div>
         </div>
@@ -630,13 +694,33 @@ function handleKeydown(e: KeyboardEvent) {
     </div>
 
     <!-- 输入区域 -->
-    <div class="chat-input">
-      <el-input v-model="input" type="textarea" :rows="2"
-        placeholder="输入您的问题，Enter 发送，Shift+Enter 换行..."
-        :disabled="sending" @keydown="handleKeydown" resize="none" />
-      <el-button v-if="!sending" :icon="Promotion" type="primary" :disabled="!input.trim()"
-        @click="handleSendStream" class="send-btn">发送</el-button>
-      <el-button v-else type="danger" @click="handleStop" class="send-btn">停止</el-button>
+    <div class="chat-input-wrapper">
+      <!-- 引用文档标签 -->
+      <div v-if="referencedDoc" class="referenced-doc-bar">
+        <el-tag closable size="small" type="primary" effect="plain" @close="clearReferencedDoc">
+          📄 引用文档：《{{ referencedDoc }}》
+        </el-tag>
+        <span class="referenced-hint">请输入您的具体问题，发送时将自动基于该文档回答</span>
+      </div>
+      <!-- 已选图片预览 -->
+      <div v-if="selectedImage" class="selected-image-bar">
+        <div class="selected-image-preview">
+          <img :src="selectedImage" alt="已选图片" />
+          <span class="remove-image-btn" @click="clearSelectedImage">×</span>
+        </div>
+      </div>
+      <div class="chat-input">
+        <input ref="imageInputRef" type="file" accept="image/*" style="display:none" @change="onImageChange" />
+        <el-button circle class="image-pick-btn" :disabled="sending" title="发送图片" @click="triggerImagePicker">
+          <el-icon :size="18"><Picture /></el-icon>
+        </el-button>
+        <el-input v-model="input" type="textarea" :rows="2"
+          :placeholder="referencedDoc ? `围绕《${referencedDoc}》输入您的问题...` : '输入您的问题，Enter 发送，Shift+Enter 换行...'"
+          :disabled="sending" @keydown="handleKeydown" resize="none" />
+        <el-button v-if="!sending" :icon="Promotion" type="primary" :disabled="!input.trim() && !selectedImage"
+          @click="handleSendStream" class="send-btn">发送</el-button>
+        <el-button v-else type="danger" @click="handleStop" class="send-btn">停止</el-button>
+      </div>
     </div>
 
     <!-- ===== 历史会话抽屉 ===== -->
@@ -799,6 +883,7 @@ function handleKeydown(e: KeyboardEvent) {
 .chat-messages { flex: 1; overflow-y: auto; padding: 20px 24px; background: #f8fafc; scroll-behavior: smooth; }
 .welcome { display: flex; flex-direction: column; align-items: center; justify-content: center;
   height: 100%; color: var(--color-text-secondary); text-align: center; }
+.welcome-avatar { width: 96px; height: 96px; border-radius: 50%; }
 .welcome h4 { margin: 16px 0 8px; font-size: 18px; color: var(--color-text-primary); }
 .welcome p { margin: 0 0 20px; font-size: 14px; max-width: 400px; }
 .quick-tips { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
@@ -826,10 +911,20 @@ function handleKeydown(e: KeyboardEvent) {
 .typing-indicator span:nth-child(3) { animation-delay: 0.4s; }
 @keyframes typing { 0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; } 40% { transform: scale(1); opacity: 1; } }
 
-.chat-input { display: flex; align-items: flex-end; gap: 12px; padding: 14px 20px;
-  border-top: 1px solid var(--color-border); background: #fff; }
+.chat-input-wrapper { border-top: 1px solid var(--color-border); background: #fff; }
+.referenced-doc-bar { padding: 8px 20px 0; display: flex; align-items: center; gap: 10px; }
+.referenced-hint { font-size: 12px; color: var(--color-text-muted); }
+.selected-image-bar { padding: 8px 20px 0; }
+.selected-image-preview { position: relative; display: inline-block; border: 1px solid var(--color-border); border-radius: var(--radius-md); overflow: hidden; }
+.selected-image-preview img { width: 80px; height: 80px; object-fit: cover; display: block; }
+.remove-image-btn { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px; line-height: 16px; text-align: center; background: rgba(0,0,0,0.6); color: #fff; border-radius: 50%; font-size: 14px; cursor: pointer; }
+.chat-input { display: flex; align-items: flex-end; gap: 12px; padding: 10px 20px 14px; background: #fff; }
+.image-pick-btn { flex-shrink: 0; margin-bottom: 4px; }
 .chat-input :deep(.el-textarea__inner) { border-radius: var(--radius-md); font-size: 14px; box-shadow: none; }
 .send-btn { height: 54px; min-width: 80px; border-radius: var(--radius-md); font-size: 14px; }
+.msg-image-wrapper { margin-bottom: 8px; }
+.msg-image { max-width: 220px; max-height: 220px; border-radius: var(--radius-md); display: block; }
+.message-row.user .msg-image { border: 2px solid rgba(255,255,255,0.3); }
 
 /* 思考过程 */
 .thinking-section { margin-bottom: 10px; }
