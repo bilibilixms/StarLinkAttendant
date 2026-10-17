@@ -1,6 +1,5 @@
 package com.starlink.common.oss;
 
-import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.IdUtil;
 import com.aliyun.oss.OSS;
 import com.aliyun.oss.OSSClientBuilder;
@@ -14,6 +13,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.InputStream;
 import java.net.URL;
+import java.net.URI;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.Date;
@@ -54,8 +54,8 @@ public class OssFileService implements FileService {
     @Override
     public String upload(InputStream inputStream, String fileName, String bizType) {
         try {
-            String extension = FileUtil.extName(fileName);
-            String objectKey = buildObjectKey(bizType, extension);
+            String extension = FileUploadPolicy.safeExtension(fileName);
+            String objectKey = buildObjectKey(FileUploadPolicy.safeBizType(bizType), extension);
             ossClient.putObject(properties.getBucketName(), objectKey, inputStream);
 
             String fileUrl = "https://" + properties.getBucketName() + "." + properties.getEndpoint() + "/" + objectKey;
@@ -114,11 +114,20 @@ public class OssFileService implements FileService {
 
     /** 从完整 URL 中提取对象键（bucket 域名之后的部分） */
     private String extractObjectKey(String fileUrl) {
-        String host = properties.getBucketName() + "." + properties.getEndpoint() + "/";
-        int idx = fileUrl.indexOf(host);
-        if (idx < 0) {
+        if (fileUrl == null) {
             return null;
         }
-        return fileUrl.substring(idx + host.length());
+        try {
+            URI uri = URI.create(fileUrl);
+            String expectedHost = properties.getBucketName() + "." + properties.getEndpoint();
+            String path = uri.getRawPath();
+            if (!"https".equalsIgnoreCase(uri.getScheme()) || !expectedHost.equalsIgnoreCase(uri.getHost())
+                    || path == null || path.length() < 2 || path.contains("..")) {
+                return null;
+            }
+            return path.substring(1);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }
