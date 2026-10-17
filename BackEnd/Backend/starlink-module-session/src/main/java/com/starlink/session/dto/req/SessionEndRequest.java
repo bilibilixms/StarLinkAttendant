@@ -14,6 +14,4 @@ public class SessionEndRequest {
     @NotNull(message = "会话 ID 不能为空")
     private Long sessionId;
 
-    /** 实付金额（可选，用于结算） */
-    private java.math.BigDecimal paidAmount;
 }
