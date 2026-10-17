@@ -85,31 +85,47 @@ public class AuthService {
         return response;
     }
 
-    public void logout(String token) {
-        if (token == null || token.isBlank()) {
-            return;
+    public void logout(String accessToken, String refreshToken) {
+        Long userId = jwtTokenUtil.parseAccessToken(accessToken).get("userId", Long.class);
+        if (refreshToken != null && !refreshToken.isBlank()) {
+            Long refreshUserId = jwtTokenUtil.parseRefreshToken(refreshToken).get("userId", Long.class);
+            if (!userId.equals(refreshUserId)) {
+                throw new BusinessException(ErrorCode.TOKEN_INVALID);
+            }
+            revoke(refreshToken);
         }
+        revoke(accessToken);
+        log.info("用户退出登录，令牌已撤销: userId={}", userId);
+    }
+
+    private void revoke(String token) {
         long remaining = jwtTokenUtil.getRemainingSeconds(token);
-        if (remaining <= 0) {
-            // token 已过期，没必要写黑名单
-            log.info("用户退出登录（token 已过期）");
-            return;
+        if (remaining > 0) {
+            redisService.set("jwt:blacklist:" + SecureUtil.sha256(token), "1", Duration.ofSeconds(remaining + 1));
         }
-        String key = "jwt:blacklist:" + SecureUtil.sha256(token);
-        redisService.set(key, "1", Duration.ofSeconds(remaining));
-        log.info("用户退出登录，token 已加入黑名单，剩余 {} 秒", remaining);
     }
 
     public LoginResponse refreshToken(RefreshTokenRequest request) {
         Long userId;
         try {
-            userId = jwtTokenUtil.getUserIdFromToken(request.getRefreshToken());
+            userId = jwtTokenUtil.parseRefreshToken(request.getRefreshToken()).get("userId", Long.class);
         } catch (Exception e) {
             throw new BusinessException(ErrorCode.TOKEN_INVALID);
         }
 
+        if (userId == null || userId <= 0) {
+            throw new BusinessException(ErrorCode.TOKEN_INVALID);
+        }
+
         Employee employee = employeeMapper.selectById(userId);
-        if (employee == null) {
+        if (employee == null || employee.getStatus() != 1 || employee.getIsActive() != 1
+                || !employee.getPhone().equals(jwtTokenUtil.getUsernameFromToken(request.getRefreshToken()))) {
+            throw new BusinessException(ErrorCode.TOKEN_INVALID);
+        }
+
+        String key = "jwt:blacklist:" + SecureUtil.sha256(request.getRefreshToken());
+        long remaining = jwtTokenUtil.getRemainingSeconds(request.getRefreshToken());
+        if (remaining <= 0 || !redisService.setIfAbsent(key, "1", Duration.ofSeconds(remaining + 1))) {
             throw new BusinessException(ErrorCode.TOKEN_INVALID);
         }
 

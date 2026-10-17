@@ -2,6 +2,7 @@ package com.starlink.system.controller;
 
 import com.starlink.common.result.Result;
 import com.starlink.system.dto.req.LoginRequest;
+import com.starlink.system.dto.req.LogoutRequest;
 import com.starlink.system.dto.req.RefreshTokenRequest;
 import com.starlink.system.dto.resp.LoginResponse;
 import com.starlink.system.dto.resp.UserInfoResponse;
@@ -28,11 +29,11 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public Result<Void> logout(HttpServletRequest request) {
+    public Result<Void> logout(HttpServletRequest request, @RequestBody(required = false) LogoutRequest body) {
         String bearerToken = request.getHeader("Authorization");
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
             String token = bearerToken.substring(7);
-            authService.logout(token);
+            authService.logout(token, body == null ? null : body.getRefreshToken());
         }
         return Result.ok();
     }
