@@ -10,7 +10,7 @@
 --   2. 若数据库已存在同名表，脚本会先执行 DROP TABLE（按依赖倒序），
 --      因此请确认后再运行。
 --   3. 所有表统一包含公共字段 id / created_at / updated_at / deleted_at / version。
---   4. 支付方式仅支持：1-现金 2-会员余额（Demo 项目不接入真实第三方支付）。
+--   4. 支付方式：1-现金 2-微信 3-支付宝 4-会员余额；线上方式需真实验款后启用。
 --   5. 注册来源仅支持：1-前台 2-后台导入（无小程序渠道）。
 -- ============================================================
 
@@ -194,7 +194,7 @@ CREATE TABLE `member_recharge` (
     `total_amount`      DECIMAL(12,2)    NOT NULL                 COMMENT '到账总额 = 充值 + 赠送',
     `balance_before`    DECIMAL(12,2)    NOT NULL                 COMMENT '充值前余额',
     `balance_after`     DECIMAL(12,2)    NOT NULL                 COMMENT '充值后余额',
-    `payment_method`    TINYINT          NOT NULL                 COMMENT '支付方式：1-现金 2-会员余额',
+    `payment_method`    TINYINT          NOT NULL                 COMMENT '支付方式：1-现金 2-微信 3-支付宝 4-会员余额',
     `payment_channel`   VARCHAR(32)      DEFAULT NULL             COMMENT '支付通道（Demo 项目预留）',
     `trade_no`          VARCHAR(64)      DEFAULT NULL             COMMENT '交易流水号（Demo 项目预留）',
     `operator_id`       BIGINT UNSIGNED  DEFAULT NULL             COMMENT '操作员工ID → employee.id（自助为NULL）',
@@ -685,7 +685,7 @@ CREATE TABLE `refund_record` (
     `refund_amount`   DECIMAL(12,2)    NOT NULL                 COMMENT '退款金额',
     `refund_type`     TINYINT          NOT NULL                 COMMENT '退款类型：1-全额退款 2-部分退款',
     `refund_reason`   VARCHAR(255)     DEFAULT NULL             COMMENT '退款原因',
-    `refund_method`   TINYINT          DEFAULT NULL             COMMENT '退款方式：1-现金退 2-退余额',
+    `refund_method`   TINYINT          DEFAULT NULL             COMMENT '退款方式：1-现金 2-微信 3-支付宝 4-退余额',
     `status`          TINYINT          NOT NULL DEFAULT 0       COMMENT '状态：0-待审核 1-已审核 2-已完成 3-已拒绝',
     `audit_by`        BIGINT UNSIGNED  DEFAULT NULL             COMMENT '审核人ID → employee.id',
     `audit_at`        DATETIME         DEFAULT NULL             COMMENT '审核时间',
