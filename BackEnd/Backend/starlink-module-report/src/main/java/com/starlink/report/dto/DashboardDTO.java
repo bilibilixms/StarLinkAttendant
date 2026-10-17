@@ -49,6 +49,6 @@ public class DashboardDTO {
     /** 客单价（平均每单金额） */
     private BigDecimal avgOrderAmount;
 
-    /** 上机率（使用中+空闲 / 总启用机器，百分比） */
+    /** 上机率（有活跃会话的机位 / 总启用机器，百分比） */
     private BigDecimal occupancyRate;
 }

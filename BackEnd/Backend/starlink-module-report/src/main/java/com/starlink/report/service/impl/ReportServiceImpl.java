@@ -171,11 +171,13 @@ public class ReportServiceImpl implements ReportService {
     public FinanceDTO getFinance(String start, String end) {
         FinanceDTO dto = new FinanceDTO();
 
-        // 收入（优先使用 payment_record，补充使用 daily_settlement）
+        // 收入按原始支付记录统计毛额，退款单独列出，避免全额退款被扣两次。
         Map<String, Object> income = reportMapper.selectIncomeBreakdown(start, end);
-        BigDecimal cashIncome = toBigDecimal(income.get("cashIncome"));
-        BigDecimal balanceIncome = toBigDecimal(income.get("balanceIncome"));
-        BigDecimal totalIncome = toBigDecimal(income.get("totalIncome"));
+        BigDecimal cashIncome = toBigDecimal(income == null ? null : income.get("cashIncome"));
+        BigDecimal balanceIncome = toBigDecimal(income == null ? null : income.get("balanceIncome"));
+        BigDecimal onlineIncome = toBigDecimal(income == null ? null : income.get("onlineIncome"));
+        BigDecimal totalIncome = toBigDecimal(income == null ? null : income.get("totalIncome"));
+        boolean fromSettlement = false;
 
         // 如果 payment_record 无数据，回退到日结表
         if (totalIncome.compareTo(BigDecimal.ZERO) == 0) {
@@ -183,13 +185,19 @@ public class ReportServiceImpl implements ReportService {
             LocalDate endDate = LocalDate.parse(end.substring(0, 10));
             Map<String, Object> settlement = reportMapper.selectDailySettlementSummary(startDate, endDate);
             if (settlement != null) {
-                totalIncome = toBigDecimal(settlement.get("totalRevenue"));
-                cashIncome = totalIncome.subtract(balanceIncome); // approximate
+                totalIncome = toBigDecimal(settlement.get("onlineRevenue"))
+                        .add(toBigDecimal(settlement.get("productRevenue")))
+                        .add(toBigDecimal(settlement.get("rechargeRevenue")));
+                cashIncome = toBigDecimal(settlement.get("cashAmount"));
+                balanceIncome = toBigDecimal(settlement.get("balanceAmount"));
+                onlineIncome = totalIncome.subtract(cashIncome).subtract(balanceIncome).max(BigDecimal.ZERO);
+                fromSettlement = true;
             }
         }
 
         dto.setCashIncome(cashIncome);
         dto.setBalanceIncome(balanceIncome);
+        dto.setOnlineIncome(onlineIncome);
         dto.setTotalIncome(totalIncome);
 
         // 退款
@@ -215,9 +223,9 @@ public class ReportServiceImpl implements ReportService {
 
         // 现金流量表
         BigDecimal rechargeInflow = nvl(reportMapper.selectRechargeInflow(start, end));
-        dto.setOperatingInflow(cashIncome);
+        dto.setOperatingInflow(fromSettlement ? cashIncome.subtract(rechargeInflow).max(BigDecimal.ZERO) : cashIncome);
         dto.setRechargeInflow(rechargeInflow);
-        dto.setTotalInflow(cashIncome.add(rechargeInflow));
+        dto.setTotalInflow(fromSettlement ? cashIncome : cashIncome.add(rechargeInflow));
 
         BigDecimal cashOutflow = nvl(reportMapper.selectCashOutflow(start, end));
         dto.setCashOutflow(cashOutflow);
@@ -310,6 +318,7 @@ public class ReportServiceImpl implements ReportService {
                 mapOf("metric", "总收入", "value", d.getTotalIncome()),
                 mapOf("metric", "现金收入", "value", d.getCashIncome()),
                 mapOf("metric", "余额收入", "value", d.getBalanceIncome()),
+                mapOf("metric", "线上收入", "value", d.getOnlineIncome()),
                 mapOf("metric", "退款金额", "value", d.getRefundAmount()),
                 mapOf("metric", "净收入", "value", d.getNetIncome()),
                 mapOf("metric", "采购支出", "value", d.getPurchaseExpense()),
