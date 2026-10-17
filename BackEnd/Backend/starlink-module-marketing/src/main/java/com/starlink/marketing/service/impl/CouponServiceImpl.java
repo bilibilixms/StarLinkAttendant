@@ -108,7 +108,7 @@ public class CouponServiceImpl implements CouponService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CouponTemplateResponse updateCouponTemplate(Long id, CouponTemplateUpdateRequest request) {
-        CouponTemplate template = couponTemplateMapper.selectById(id);
+        CouponTemplate template = couponTemplateMapper.selectByIdForUpdate(id);
         if (template == null) {
             throw new BusinessException(ErrorCode.COUPON_TEMPLATE_NOT_FOUND);
         }
@@ -144,6 +144,13 @@ public class CouponServiceImpl implements CouponService {
             template.setApplicableProducts(request.getApplicableProducts());
         }
         if (request.getTotalQuantity() != null) {
+            if (request.getTotalQuantity() > 0) {
+                Long issued = couponMapper.selectCount(
+                        new LambdaQueryWrapper<Coupon>().eq(Coupon::getTemplateId, id));
+                if (issued > request.getTotalQuantity()) {
+                    throw new BusinessException(ErrorCode.COUPON_INSUFFICIENT_QUANTITY);
+                }
+            }
             template.setTotalQuantity(request.getTotalQuantity());
         }
         if (request.getMemberLevelLimit() != null) {
@@ -161,7 +168,7 @@ public class CouponServiceImpl implements CouponService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteCouponTemplate(Long id) {
-        CouponTemplate template = couponTemplateMapper.selectById(id);
+        CouponTemplate template = couponTemplateMapper.selectByIdForUpdate(id);
         if (template == null) {
             throw new BusinessException(ErrorCode.COUPON_TEMPLATE_NOT_FOUND);
         }
@@ -174,7 +181,7 @@ public class CouponServiceImpl implements CouponService {
     @Transactional(rollbackFor = Exception.class)
     public Integer issueCoupon(CouponIssueRequest request) {
         // 1. 校验模板存在且启用
-        CouponTemplate template = couponTemplateMapper.selectById(request.getTemplateId());
+        CouponTemplate template = couponTemplateMapper.selectByIdForUpdate(request.getTemplateId());
         if (template == null) {
             throw new BusinessException(ErrorCode.COUPON_TEMPLATE_NOT_FOUND);
         }
@@ -183,6 +190,13 @@ public class CouponServiceImpl implements CouponService {
         }
 
         int quantity = request.getQuantity() != null ? request.getQuantity() : 1;
+        if (request.getMemberId() == null || quantity < 1 || quantity > 100) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR);
+        }
+        Long campaignId = template.getCampaignId();
+        if (request.getCampaignId() != null && !request.getCampaignId().equals(campaignId)) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR.getCode(), "活动与优惠券模板不匹配");
+        }
 
         // 2. 校验发行总量限制
         if (template.getTotalQuantity() != null && template.getTotalQuantity() > 0) {
@@ -194,8 +208,9 @@ public class CouponServiceImpl implements CouponService {
         }
 
         // 3. 校验关联活动状态（如果有 campaignId）
-        if (request.getCampaignId() != null) {
-            Campaign campaign = campaignMapper.selectById(request.getCampaignId());
+        Campaign campaign = null;
+        if (campaignId != null) {
+            campaign = campaignMapper.selectByIdForUpdate(campaignId);
             if (campaign == null) {
                 throw new BusinessException(ErrorCode.CAMPAIGN_NOT_FOUND);
             }
@@ -224,7 +239,7 @@ public class CouponServiceImpl implements CouponService {
                 Long memberUsedCount = couponMapper.selectCount(
                         new LambdaQueryWrapper<Coupon>()
                                 .eq(Coupon::getMemberId, request.getMemberId())
-                                .eq(Coupon::getCampaignId, request.getCampaignId()));
+                                .eq(Coupon::getCampaignId, campaignId));
                 if (memberUsedCount + quantity > campaign.getMemberLimit()) {
                     throw new BusinessException(ErrorCode.CAMPAIGN_MEMBER_LIMIT);
                 }
@@ -237,7 +252,7 @@ public class CouponServiceImpl implements CouponService {
             Coupon coupon = new Coupon();
             coupon.setMemberId(request.getMemberId());
             coupon.setTemplateId(request.getTemplateId());
-            coupon.setCampaignId(request.getCampaignId());
+            coupon.setCampaignId(campaignId);
             coupon.setCouponCode(generateUniqueCouponCode(usedCodes));
             coupon.setFaceValue(template.getFaceValue());
             coupon.setStatus(CouponStatus.UNUSED.getCode());
@@ -258,13 +273,10 @@ public class CouponServiceImpl implements CouponService {
         }
 
         // 5. 更新活动已使用次数
-        if (request.getCampaignId() != null) {
-            Campaign campaign = campaignMapper.selectById(request.getCampaignId());
-            if (campaign != null) {
-                int currentUsed = campaign.getUsedCount() != null ? campaign.getUsedCount() : 0;
-                campaign.setUsedCount(currentUsed + quantity);
-                campaignMapper.updateById(campaign);
-            }
+        if (campaign != null) {
+            int currentUsed = campaign.getUsedCount() != null ? campaign.getUsedCount() : 0;
+            campaign.setUsedCount(currentUsed + quantity);
+            campaignMapper.updateById(campaign);
         }
 
         log.info("发放优惠券成功，模板ID: {}, 数量: {}", request.getTemplateId(), quantity);
@@ -274,9 +286,17 @@ public class CouponServiceImpl implements CouponService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public CouponResponse redeemCoupon(Long couponId, Long orderId) {
-        Coupon coupon = couponMapper.selectById(couponId);
+        Coupon coupon = couponMapper.selectByIdForUpdate(couponId);
         if (coupon == null) {
             throw new BusinessException(ErrorCode.COUPON_NOT_FOUND);
+        }
+        if (orderId == null || orderId <= 0) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR);
+        }
+        java.util.Map<String, Object> order = couponMapper.selectOrderMember(orderId);
+        if (order == null || !(order.get("memberId") instanceof Number memberId)
+                || memberId.longValue() != coupon.getMemberId()) {
+            throw new BusinessException(ErrorCode.CONFLICT.getCode(), "订单不存在或不属于持券会员");
         }
 
         // 校验状态：只有未使用的券才能核销
@@ -292,9 +312,6 @@ public class CouponServiceImpl implements CouponService {
 
         // 校验是否已过期
         if (coupon.getExpireAt() != null && LocalDateTime.now().isAfter(coupon.getExpireAt())) {
-            // 自动标记为过期
-            coupon.setStatus(CouponStatus.EXPIRED.getCode());
-            couponMapper.updateById(coupon);
             throw new BusinessException(ErrorCode.COUPON_EXPIRED);
         }
 
