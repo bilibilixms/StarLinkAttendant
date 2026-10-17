@@ -25,10 +25,10 @@ spring:
   # Redis
   data:
     redis:
-      host: 127.0.0.1
-      port: 6379
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}        # 环境变量注入，真实密码不写死
-      database: 9                        # 默认 9 库
+      database: ${REDIS_DATABASE:9}
       timeout: 3000ms                     # 连接超时
       lettuce:
         pool:

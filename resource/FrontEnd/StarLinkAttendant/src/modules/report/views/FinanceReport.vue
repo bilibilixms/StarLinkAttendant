@@ -57,6 +57,7 @@ onMounted(fetchData)
             <tr><td class="fl">一、营业收入</td><td class="fr">{{ fm(store.finance?.totalIncome) }}</td></tr>
             <tr class="sub"><td class="fl">现金收入</td><td class="fr">{{ fm(store.finance?.cashIncome) }}</td></tr>
             <tr class="sub"><td class="fl">余额收入</td><td class="fr">{{ fm(store.finance?.balanceIncome) }}</td></tr>
+            <tr class="sub"><td class="fl">线上收入</td><td class="fr">{{ fm(store.finance?.onlineIncome) }}</td></tr>
             <tr><td class="fl">减：退款</td><td class="fr">{{ fm(store.finance?.refundAmount) }}</td></tr>
             <tr class="total"><td class="fl">二、净收入</td><td class="fr">{{ fm(store.finance?.netIncome) }}</td></tr>
             <tr><td class="fl">减：采购支出</td><td class="fr">{{ fm(store.finance?.purchaseExpense) }}</td></tr>

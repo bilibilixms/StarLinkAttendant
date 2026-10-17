@@ -21,6 +21,9 @@ public class FinanceDTO {
     /** 余额收入 */
     private BigDecimal balanceIncome;
 
+    /** 微信/支付宝等线上收入 */
+    private BigDecimal onlineIncome;
+
     /** 退款金额（冲减收入） */
     private BigDecimal refundAmount;
 

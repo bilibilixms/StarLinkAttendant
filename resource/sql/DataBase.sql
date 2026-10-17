@@ -6,11 +6,11 @@
 --
 -- 说明：
 --   1. 本脚本可直接在 MySQL 8.0+ 中运行，会创建 starlink_attendant 数据库
---      及全部 43 张业务表，并添加外键约束。
+--      及全部 46 张业务表，并添加外键约束。
 --   2. 若数据库已存在同名表，脚本会先执行 DROP TABLE（按依赖倒序），
---      因此请确认后再运行。
+--      全部现有数据会永久丢失。仅用于全新环境，已有数据库请使用增量脚本。
 --   3. 所有表统一包含公共字段 id / created_at / updated_at / deleted_at / version。
---   4. 支付方式仅支持：1-现金 2-会员余额（Demo 项目不接入真实第三方支付）。
+--   4. 支付方式：1-现金 2-微信 3-支付宝 4-会员余额；线上方式需真实验款后启用。
 --   5. 注册来源仅支持：1-前台 2-后台导入（无小程序渠道）。
 -- ============================================================
 
@@ -33,6 +33,8 @@ SET FOREIGN_KEY_CHECKS = 0;
 -- 3. 清理旧表（按依赖倒序，保证外键不阻塞删除）
 -- ============================================================
 DROP TABLE IF EXISTS `audit_log`;
+DROP TABLE IF EXISTS `ai_chat_message`;
+DROP TABLE IF EXISTS `ai_chat_session`;
 DROP TABLE IF EXISTS `file_meta`;
 DROP TABLE IF EXISTS `notification`;
 DROP TABLE IF EXISTS `system_config`;
@@ -72,12 +74,13 @@ DROP TABLE IF EXISTS `tariff_plan`;
 DROP TABLE IF EXISTS `seat_area`;
 DROP TABLE IF EXISTS `member_recharge`;
 DROP TABLE IF EXISTS `member_balance_log`;
+DROP TABLE IF EXISTS `member_growth_log`;
 DROP TABLE IF EXISTS `member_points_log`;
 DROP TABLE IF EXISTS `member`;
 DROP TABLE IF EXISTS `member_level`;
 
 -- ============================================================
--- 4. 建表语句（40 张表）
+-- 4. 建表语句（46 张表）
 -- ============================================================
 
 -- ------------------------------------------------------------
@@ -112,12 +115,13 @@ CREATE TABLE `member` (
     `real_name`           VARCHAR(32)      DEFAULT NULL             COMMENT '真实姓名',
     `gender`              TINYINT          NOT NULL DEFAULT 0       COMMENT '性别：0-未知 1-男 2-女',
     `phone`               VARCHAR(20)      NOT NULL                 COMMENT '手机号（登录账号）',
-    `id_card`             VARCHAR(18)      DEFAULT NULL             COMMENT '身份证号（加密存储）',
-    `id_card_hash`        VARCHAR(64)      DEFAULT NULL             COMMENT '身份证哈希（用于去重）',
+    `id_card`             VARCHAR(18)      DEFAULT NULL             COMMENT '旧版明文迁移字段，应用不再写入',
+    `id_card_hash`        VARCHAR(64)      DEFAULT NULL             COMMENT '身份证号 HMAC-SHA256 摘要',
     `birthday`            DATE             DEFAULT NULL             COMMENT '出生日期',
     `level_id`            BIGINT UNSIGNED  DEFAULT NULL             COMMENT '当前等级ID → member_level.id',
     `total_points`        BIGINT           NOT NULL DEFAULT 0       COMMENT '累计获得积分',
     `available_points`    BIGINT           NOT NULL DEFAULT 0       COMMENT '可用积分',
+    `growth_value`        INT              NOT NULL DEFAULT 0       COMMENT '累计成长值',
     `total_recharge`      DECIMAL(12,2)    NOT NULL DEFAULT 0.00    COMMENT '累计充值金额',
     `balance`             DECIMAL(12,2)    NOT NULL DEFAULT 0.00    COMMENT '账户余额',
     `total_consumption`   DECIMAL(12,2)    NOT NULL DEFAULT 0.00    COMMENT '累计消费金额',
@@ -162,6 +166,29 @@ CREATE TABLE `member_points_log` (
     KEY `idx_biz_type` (`biz_type`),
     KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='积分流水表';
+
+-- 会员成长值流水表
+CREATE TABLE `member_growth_log` (
+    `id`              BIGINT UNSIGNED  NOT NULL AUTO_INCREMENT,
+    `member_id`       BIGINT UNSIGNED  NOT NULL,
+    `growth`          INT              NOT NULL,
+    `growth_before`   INT              NOT NULL DEFAULT 0,
+    `growth_after`    INT              NOT NULL DEFAULT 0,
+    `biz_type`        TINYINT          NOT NULL,
+    `biz_id`          BIGINT UNSIGNED  DEFAULT NULL,
+    `level_before_id` BIGINT UNSIGNED  DEFAULT NULL,
+    `level_after_id`  BIGINT UNSIGNED  DEFAULT NULL,
+    `is_upgraded`     TINYINT          NOT NULL DEFAULT 0,
+    `remark`          VARCHAR(255)     DEFAULT NULL,
+    `created_at`      DATETIME(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+    `updated_at`      DATETIME(3)      NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+    `deleted_at`      DATETIME(3)      DEFAULT NULL,
+    `version`         INT UNSIGNED     NOT NULL DEFAULT 1,
+    PRIMARY KEY (`id`),
+    KEY `idx_member_id` (`member_id`),
+    KEY `idx_biz_type` (`biz_type`),
+    KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='会员成长值流水表';
 
 -- 会员余额变动流水表
 -- 说明：金额精度与 member.balance（DECIMAL(12,2)）保持一致，
@@ -686,7 +713,7 @@ CREATE TABLE `refund_record` (
     `refund_amount`   DECIMAL(12,2)    NOT NULL                 COMMENT '退款金额',
     `refund_type`     TINYINT          NOT NULL                 COMMENT '退款类型：1-全额退款 2-部分退款',
     `refund_reason`   VARCHAR(255)     DEFAULT NULL             COMMENT '退款原因',
-    `refund_method`   TINYINT          DEFAULT NULL             COMMENT '退款方式：1-现金退 2-退余额',
+    `refund_method`   TINYINT          DEFAULT NULL             COMMENT '退款方式：1-现金 2-微信 3-支付宝 4-退余额',
     `status`          TINYINT          NOT NULL DEFAULT 0       COMMENT '状态：0-待审核 1-已审核 2-已完成 3-已拒绝',
     `audit_by`        BIGINT UNSIGNED  DEFAULT NULL             COMMENT '审核人ID → employee.id',
     `audit_at`        DATETIME         DEFAULT NULL             COMMENT '审核时间',
@@ -1067,6 +1094,40 @@ CREATE TABLE `file_meta` (
     KEY `idx_biz_type_biz_id` (`biz_type`, `biz_id`),
     KEY `idx_file_md5` (`file_md5`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='文件元数据表';
+
+-- AI 助手对话会话表
+CREATE TABLE `ai_chat_session` (
+    `id`            BIGINT       NOT NULL AUTO_INCREMENT,
+    `session_no`    VARCHAR(32)  NOT NULL,
+    `user_type`     VARCHAR(10)  NOT NULL DEFAULT 'user',
+    `user_id`       BIGINT       DEFAULT NULL,
+    `user_name`     VARCHAR(64)  DEFAULT NULL,
+    `title`         VARCHAR(100) NOT NULL DEFAULT '新对话',
+    `message_count` INT          NOT NULL DEFAULT 0,
+    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `deleted_at`    DATETIME     DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_session_no` (`session_no`),
+    KEY `idx_user` (`user_type`, `user_id`, `deleted_at`),
+    KEY `idx_updated` (`updated_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI 助手会话表';
+
+-- AI 助手对话消息表
+CREATE TABLE `ai_chat_message` (
+    `id`            BIGINT       NOT NULL AUTO_INCREMENT,
+    `session_id`    BIGINT       NOT NULL,
+    `role`          VARCHAR(10)  NOT NULL,
+    `content`       TEXT         NOT NULL,
+    `thinking_json` TEXT         DEFAULT NULL,
+    `cost_ms`       INT          DEFAULT NULL,
+    `model`         VARCHAR(64)  DEFAULT NULL,
+    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `deleted_at`    DATETIME     DEFAULT NULL,
+    PRIMARY KEY (`id`),
+    KEY `idx_session` (`session_id`, `deleted_at`),
+    KEY `idx_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='AI 助手消息表';
 
 -- ============================================================
 -- 5. 外键约束

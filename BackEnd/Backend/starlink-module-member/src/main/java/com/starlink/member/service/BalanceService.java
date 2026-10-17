@@ -82,6 +82,24 @@ public class BalanceService {
         return balanceAfter;
     }
 
+    /** 强制结束会话时扣除可用余额，返回实际入账金额，欠款由会话计费记录保留。 */
+    @Transactional
+    public BigDecimal deductAvailableBalance(Long memberId, BigDecimal amount, Byte bizType, Long bizId, String remark) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) < 0) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR.getCode(), "扣减金额不能为负数");
+        }
+        Member member = memberMapper.selectByIdForUpdate(memberId);
+        if (member == null) {
+            throw new BusinessException(ErrorCode.NOT_FOUND.getCode(), "会员不存在");
+        }
+        BigDecimal before = member.getBalance() == null ? BigDecimal.ZERO : member.getBalance();
+        BigDecimal deducted = before.max(BigDecimal.ZERO).min(amount);
+        if (deducted.compareTo(BigDecimal.ZERO) > 0) {
+            persistChange(member, deducted.negate(), before, before.subtract(deducted), bizType, bizId, remark);
+        }
+        return deducted;
+    }
+
     /**
      * 增加会员余额（充值入账、退款回充等场景）。
      *
@@ -127,6 +145,10 @@ public class BalanceService {
         balanceLogMapper.insert(logEntry);
 
         member.setBalance(balanceAfter);
+        if (signedAmount.signum() < 0) {
+            member.setTotalConsumption((member.getTotalConsumption() == null ? BigDecimal.ZERO : member.getTotalConsumption())
+                    .add(signedAmount.negate()));
+        }
         int rows = memberMapper.updateById(member);
         if (rows == 0) {
             throw new BusinessException(ErrorCode.CONFLICT.getCode(),
