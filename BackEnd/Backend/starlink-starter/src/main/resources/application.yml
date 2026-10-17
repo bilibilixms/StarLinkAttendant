@@ -68,7 +68,7 @@ aliyun:
 
 # 文件存储配置：storage=oss 时使用阿里云 OSS，=local 时使用本地磁盘
 file:
-  storage: oss
+  storage: ${FILE_STORAGE:local}
   local:
     base-path: ./uploads
     base-url: http://localhost:8080/uploads
