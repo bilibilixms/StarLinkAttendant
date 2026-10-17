@@ -18,6 +18,7 @@ import com.starlink.member.entity.Member;
 import com.starlink.member.entity.MemberLevel;
 import com.starlink.member.mapper.MemberLevelMapper;
 import com.starlink.member.mapper.MemberMapper;
+import com.starlink.member.security.MemberAccessGuard;
 import com.starlink.system.security.JwtTokenUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +41,7 @@ public class MemberService {
     private final MemberLevelMapper memberLevelMapper;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenUtil jwtTokenUtil;
+    private final MemberAccessGuard accessGuard;
 
     /**
      * 会员端登录（小程序）：手机号 + 密码。
@@ -52,11 +54,11 @@ public class MemberService {
         if (member == null || !passwordEncoder.matches(request.getPassword(), member.getPasswordHash())) {
             throw new BusinessException(ErrorCode.LOGIN_FAILED);
         }
-        if (member.getStatus() != null && member.getStatus() == 2) {
-            throw new BusinessException(ErrorCode.ACCOUNT_DISABLED.getCode(), "账号已注销");
-        }
         if (member.getStatus() != null && member.getStatus() == 3) {
             throw new BusinessException(ErrorCode.MEMBER_BLACKLISTED);
+        }
+        if (member.getStatus() == null || member.getStatus() != 1) {
+            throw new BusinessException(ErrorCode.ACCOUNT_DISABLED.getCode(), "账号不可用");
         }
 
         String token = jwtTokenUtil.generateAccessToken(-member.getId(), "m:" + member.getPhone());
@@ -79,6 +81,7 @@ public class MemberService {
     }
 
     public PageResult<MemberResponse> listMembers(PageQuery pageQuery, MemberQueryRequest query) {
+        accessGuard.assertMemberReader();
         Page<MemberResponse> page = new Page<>(pageQuery.getPage(), pageQuery.getSize());
         IPage<MemberResponse> result = memberMapper.selectMemberPage(
                 page, query.getMemberNo(), query.getRealName(), 
@@ -94,6 +97,11 @@ public class MemberService {
     }
 
     public MemberResponse getMemberById(Long id) {
+        accessGuard.assertMemberReader();
+        return loadMemberResponse(id);
+    }
+
+    private MemberResponse loadMemberResponse(Long id) {
         MemberResponse response = memberMapper.selectMemberDetail(id);
         if (response == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
@@ -112,8 +120,7 @@ public class MemberService {
         }
 
         if (existing != null) {
-            // 手机号被已注销（软删除）记录占用：就地复活，避免撞 uk_phone 唯一索引
-            return reviveMember(existing, request);
+            throw new BusinessException(ErrorCode.PARAM_ERROR.getCode(), "该手机号关联已注销账号，请联系管理员处理");
         }
 
         Member member = new Member();
@@ -137,42 +144,18 @@ public class MemberService {
         memberMapper.insert(member);
         log.info("会员注册成功: {}", member.getMemberNo());
 
-        return getMemberById(member.getId());
-    }
-
-    /**
-     * 复活已注销会员：重置为新会员状态（新编号、余额/积分清零），保留主键以维持历史单据引用。
-     * 走手写 SQL（reviveDeletedMember）：实体 deletedAt 标注 @TableLogic，
-     * MyBatis-Plus 内置 update 会自动追加 deleted_at IS NULL 导致匹配不到已删除行。
-     */
-    private MemberResponse reviveMember(Member member, MemberRegisterRequest request) {
-        member.setMemberNo(generateMemberNo());
-        member.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        member.setRealName(request.getRealName());
-        member.setGender(request.getGender());
-        member.setIdCard(request.getIdCard());
-        member.setBirthday(request.getBirthday());
-        member.setLevelId(getDefaultLevelId());
-        member.setTotalPoints(0L);
-        member.setAvailablePoints(0L);
-        member.setGrowthValue(0);
-        member.setTotalRecharge(BigDecimal.ZERO);
-        member.setBalance(BigDecimal.ZERO);
-        member.setTotalConsumption(BigDecimal.ZERO);
-        member.setRegisterSource((byte) 1);
-        member.setStatus((byte) 1);
-        member.setDeletedAt(null);
-
-        int rows = memberMapper.reviveDeletedMember(member);
-        if (rows == 0) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR.getCode(), "会员复活失败，请稍后重试");
-        }
-        log.info("已注销会员重新注册（复活）: id={}, phone={}", member.getId(), member.getPhone());
-        return getMemberById(member.getId());
+        return loadMemberResponse(member.getId());
     }
 
     @Transactional
     public MemberResponse updateMember(Long id, MemberUpdateRequest request) {
+        accessGuard.assertMemberSelfOrManager(id);
+        if (accessGuard.mustRestrictToSelfEditableFields()) {
+            if (StringUtils.hasText(request.getPhone())) accessGuard.denyNonSelfEditableField("phone");
+            if (StringUtils.hasText(request.getIdCard())) accessGuard.denyNonSelfEditableField("idCard");
+            if (request.getLevelId() != null) accessGuard.denyNonSelfEditableField("levelId");
+            if (request.getTag() != null) accessGuard.denyNonSelfEditableField("tag");
+        }
         Member member = memberMapper.selectById(id);
         if (member == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
@@ -207,11 +190,12 @@ public class MemberService {
         memberMapper.updateById(member);
         log.info("更新会员信息: id={}", id);
 
-        return getMemberById(id);
+        return loadMemberResponse(id);
     }
 
     @Transactional
     public void deleteMember(Long id) {
+        accessGuard.assertMemberManager();
         Member member = memberMapper.selectById(id);
         if (member == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
@@ -228,6 +212,7 @@ public class MemberService {
 
     @Transactional
     public void addToBlacklist(Long id, BlacklistRequest request) {
+        accessGuard.assertMemberManager();
         Member member = memberMapper.selectById(id);
         if (member == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
@@ -241,6 +226,7 @@ public class MemberService {
 
     @Transactional
     public void removeFromBlacklist(Long id) {
+        accessGuard.assertMemberManager();
         Member member = memberMapper.selectById(id);
         if (member == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND);
@@ -256,6 +242,7 @@ public class MemberService {
     }
 
     public List<BlacklistResponse> getBlacklist() {
+        accessGuard.assertMemberManager();
         return memberMapper.selectBlacklist();
     }
 

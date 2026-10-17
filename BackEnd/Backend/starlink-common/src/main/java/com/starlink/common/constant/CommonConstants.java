@@ -103,6 +103,9 @@ public final class CommonConstants {
     public static final int BALANCE_BIZ_RECHARGE = 3;  // 充值
     public static final int BALANCE_BIZ_ADJUST = 4;    // 手动调整
 
+    // ==================== 积分变动业务类型（member_points_log.biz_type） ====================
+    public static final int POINTS_BIZ_RECHARGE_GIFT = 2; // 充值赠送积分
+
     // ==================== 成长值业务类型（member_growth_log.biz_type） ====================
     public static final int GROWTH_BIZ_CONSUME = 1;   // 收银直接消费
     public static final int GROWTH_BIZ_RECHARGE = 2;  // 余额充值（按实付）

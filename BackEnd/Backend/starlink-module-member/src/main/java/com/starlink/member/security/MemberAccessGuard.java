@@ -44,7 +44,7 @@ public class MemberAccessGuard {
             return null;
         }
         Object principal = auth.getPrincipal();
-        return principal instanceof SecurityUser su ? su : null;
+        return principal instanceof SecurityUser su && su.isEnabled() && su.isAccountNonLocked() ? su : null;
     }
 
     /** 当前登录者是否为会员端身份。 */
@@ -63,6 +63,12 @@ public class MemberAccessGuard {
     public Long currentMemberId() {
         SecurityUser user = currentUser();
         return user != null && user.isMember() ? user.getMemberId() : null;
+    }
+
+    /** 当前受信任员工 ID；只应在员工角色校验通过后调用。 */
+    public Long currentStaffId() {
+        SecurityUser user = currentUser();
+        return user != null && !user.isMember() ? user.getUserId() : null;
     }
 
     /** 当前登录者是否持有给定角色集合中的任一角色。 */
@@ -127,6 +133,13 @@ public class MemberAccessGuard {
             return;
         }
         deny("member:ledger", "targetMemberId=" + targetMemberId + " 非本人且无充值操作权限");
+    }
+
+    /** 现金充值必须由有收款权限的员工确认，会员不能自行标记付款成功。 */
+    public void assertRechargeOperator() {
+        if (!hasAnyRole(RoleConstants.RECHARGE_OPERATORS) || !isStaffCaller()) {
+            deny("member:recharge", "需要收款员工权限");
+        }
     }
 
     /**

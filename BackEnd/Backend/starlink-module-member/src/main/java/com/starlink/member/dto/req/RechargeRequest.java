@@ -35,10 +35,6 @@ public class RechargeRequest {
     @NotNull(message = "支付方式不能为空")
     private Byte paymentMethod;
 
-    private Long operatorId;
-
-    private Long campaignId;
-
     /**
      * 客户端幂等键（可选，建议必传）。
      * <p>
