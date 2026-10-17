@@ -2,6 +2,8 @@ package com.starlink.marketing.service.impl;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.starlink.common.exception.BusinessException;
+import com.starlink.common.util.IdCardProtector;
 import com.starlink.marketing.mapper.IntegrationMapper;
 import com.starlink.marketing.mapper.SmsNotificationMapper;
 import com.starlink.marketing.service.IntegrationService;
@@ -27,6 +29,7 @@ public class IntegrationServiceImpl implements IntegrationService {
 
     private final IntegrationMapper integrationMapper;
     private final SmsNotificationMapper smsNotificationMapper;
+    private final IdCardProtector idCardProtector;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // ==================== INT-01 集成配置（system_config） ====================
@@ -102,12 +105,21 @@ public class IntegrationServiceImpl implements IntegrationService {
     @Transactional(rollbackFor = Exception.class)
     public Map<String, Object> verifyIdentity(String realName, String idCard, Long memberId) {
         boolean valid = realName != null && !realName.isBlank()
-                && idCard != null && idCard.length() >= 15;
+                && idCard != null && !idCard.isBlank();
+        String idCardHash = null;
+        if (valid) {
+            try {
+                idCardHash = idCardProtector.hash(idCard);
+            } catch (BusinessException e) {
+                valid = false;
+            }
+        }
 
         String errorMsg = null;
         if (valid) {
-            Map<String, Object> member = integrationMapper.selectMemberByNameAndIdCard(realName, idCard);
-            if (member == null) {
+            Map<String, Object> member = integrationMapper.selectMemberByNameAndIdCard(realName, idCardHash);
+            if (member == null || (memberId != null
+                    && (!(member.get("id") instanceof Number id) || id.longValue() != memberId))) {
                 valid = false;
                 errorMsg = "未找到匹配的会员信息";
             }
@@ -118,7 +130,7 @@ public class IntegrationServiceImpl implements IntegrationService {
         // 构造 detail JSON
         Map<String, Object> detailMap = new LinkedHashMap<>();
         detailMap.put("realName", realName);
-        detailMap.put("idCard", idCard);
+        detailMap.put("idCard", valid ? idCardProtector.mask(idCard) : null);
         detailMap.put("memberId", memberId);
         detailMap.put("verificationStatus", valid ? 1 : 2);
         detailMap.put("errorMessage", errorMsg);
