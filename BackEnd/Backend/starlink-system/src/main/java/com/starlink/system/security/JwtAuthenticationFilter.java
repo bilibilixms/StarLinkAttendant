@@ -18,9 +18,12 @@ import com.starlink.system.entity.Employee;
 import com.starlink.system.mapper.EmployeeMapper;
 import com.starlink.system.mapper.PermissionMapper;
 import com.starlink.system.mapper.RoleMapper;
+import com.starlink.system.mapper.MemberProfileMapper;
+import io.jsonwebtoken.Claims;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -32,6 +35,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final EmployeeMapper employeeMapper;
     private final RoleMapper roleMapper;
     private final PermissionMapper permissionMapper;
+    private final MemberProfileMapper memberProfileMapper;
     private final RedisService redisService;
 
     @Override
@@ -41,8 +45,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String token = extractToken(request);
         if (token != null) {
             try {
-                Long userId = jwtTokenUtil.getUserIdFromToken(token);
-                String username = jwtTokenUtil.getUsernameFromToken(token);
+                Claims claims = jwtTokenUtil.parseAccessToken(token);
+                Long userId = claims.get("userId", Long.class);
+                String username = claims.get("username", String.class);
+                if (userId == null || userId == 0 || username == null) {
+                    throw new IllegalArgumentException("令牌身份无效");
+                }
 
                 // 黑名单校验：token 已被主动登出则视为未认证
                 String blacklistKey = "jwt:blacklist:" + SecureUtil.sha256(token);
@@ -54,20 +62,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 if (userId < 0) {
                     // 会员身份：token 里 userId = -memberId，username = "m:phone"
-                    Long memberId = -userId;
-                    String phone = username != null && username.startsWith("m:")
-                            ? username.substring(2)
-                            : (username != null ? username : "");
-                    // 不查数据库（避免跨模块依赖 member mapper），状态默认正常
-                    SecurityUser securityUser = new SecurityUser(memberId, phone, (byte) 1);
-                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                            securityUser, null, securityUser.getAuthorities());
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                    if (userId != Long.MIN_VALUE && username.startsWith("m:")) {
+                        Long memberId = -userId;
+                        Map<String, Object> profile = memberProfileMapper.selectMemberProfile(memberId);
+                        if (profile != null && profile.get("status") instanceof Number status
+                                && status.byteValue() == 1
+                                && username.substring(2).equals(profile.get("phone"))) {
+                            SecurityUser securityUser = new SecurityUser(memberId, username.substring(2), (byte) 1);
+                            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                                    securityUser, null, securityUser.getAuthorities());
+                            SecurityContextHolder.getContext().setAuthentication(authToken);
+                        }
+                    }
                 } else {
                     // 员工身份：从数据库加载角色与权限
                     Employee employee = employeeMapper.selectById(userId);
 
-                    if (employee != null && employee.getIsActive() == 1) {
+                    if (employee != null && employee.getIsActive() == 1 && employee.getStatus() == 1
+                            && username.equals(employee.getPhone())) {
                         var roles = roleMapper.selectByEmployeeId(userId);
 
                         List<String> roleNames = roles.stream()

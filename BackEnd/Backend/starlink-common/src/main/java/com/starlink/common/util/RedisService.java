@@ -24,6 +24,11 @@ public class RedisService {
         stringRedisTemplate.opsForValue().set(key, value, ttl);
     }
 
+    /** 原子地登记一次性令牌，已存在时返回 false。 */
+    public boolean setIfAbsent(String key, String value, Duration ttl) {
+        return Boolean.TRUE.equals(stringRedisTemplate.opsForValue().setIfAbsent(key, value, ttl));
+    }
+
     /** 写入（永久，除非显式 expire） */
     public void set(String key, String value) {
         stringRedisTemplate.opsForValue().set(key, value);
