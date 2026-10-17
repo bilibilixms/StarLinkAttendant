@@ -15,6 +15,10 @@ public interface DailySettlementMapper extends BaseMapper<DailySettlement> {
 
     DailySettlement selectByDate(@Param("settleDate") LocalDate settleDate);
 
+    DailySettlement selectByDateForUpdate(@Param("settleDate") LocalDate settleDate);
+
+    DailySettlement selectByIdForUpdate(@Param("id") Long id);
+
     IPage<SettlementResponse> selectSettlementPage(Page<SettlementResponse> page,
                                                    @Param("startTime") String startTime,
                                                    @Param("endTime") String endTime,

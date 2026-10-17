@@ -40,6 +40,9 @@ public class CashierShiftServiceImpl implements CashierShiftService {
     @Override
     @Transactional
     public ShiftResponse startShift(ShiftStartRequest request, Long employeeId) {
+        if (employeeId == null || shiftMapper.lockEmployeeForShift(employeeId) == null) {
+            throw new BusinessException(ErrorCode.SHIFT_NOT_FOUND);
+        }
         CashierShift active = shiftMapper.selectActiveShift(employeeId);
         if (active != null) {
             throw new BusinessException(ErrorCode.SHIFT_ACTIVE_EXISTS);
@@ -65,7 +68,7 @@ public class CashierShiftServiceImpl implements CashierShiftService {
     @Override
     @Transactional
     public ShiftResponse endShift(ShiftEndRequest request, Long employeeId) {
-        CashierShift shift = shiftMapper.selectActiveShift(employeeId);
+        CashierShift shift = shiftMapper.selectActiveShiftForUpdate(employeeId);
         if (shift == null) {
             throw new BusinessException(ErrorCode.SHIFT_NOT_FOUND);
         }
@@ -81,7 +84,9 @@ public class CashierShiftServiceImpl implements CashierShiftService {
         shift.setCashDiff(request.getCashActual().subtract(cashExpected));
         shift.setStatus((byte) CommonConstants.SHIFT_STATUS_CLOSED);
 
-        shiftMapper.updateById(shift);
+        if (shiftMapper.updateById(shift) != 1) {
+            throw new BusinessException(ErrorCode.CONFLICT.getCode(), "班次数据已变更，请重试");
+        }
         log.info("end shift: id={}, shiftNo={}, cashDiff={}", shift.getId(), shift.getShiftNo(), shift.getCashDiff());
 
         return convertToResponse(shift);
