@@ -76,6 +76,8 @@ file:
 # JWT 配置（secret 通过环境变量 JWT_SECRET 注入，禁止明文写入仓库）
 jwt:
   secret: ${JWT_SECRET:}
+privacy:
+  id-card-hmac-key: ${ID_CARD_HMAC_KEY:}
 
 # RAG 检索配置（cafe-module-Rag）
 rag:

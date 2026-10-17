@@ -150,6 +150,11 @@ export JWT_SECRET='<your-random-secret>'
 > 环境变量在 IDE 中启动时，需在运行配置（如 IntelliJ Run/Debug Configurations）的
 > Environment variables 里同样设置 `JWT_SECRET`。
 
+会员身份证号核验还需要单独设置 `ID_CARD_HMAC_KEY`（至少 32 字节的随机值），例如
+`export ID_CARD_HMAC_KEY="$(openssl rand -base64 48)"`。同一数据库必须长期使用同一密钥，
+否则历史身份证摘要无法核验。应用启动时会将旧版 `member.id_card` 明文逐条转为
+`id_card_hash` 摘要并清空明文字段；升级前请备份数据库，并在启动后确认明文字段已清空。
+
 ### 第 4 步：启动后端
 
 确保 `JAVA_HOME` 指向 **JDK 17**（这是最常见的启动失败原因），且已按第 3 步设置 `JWT_SECRET`，然后：
