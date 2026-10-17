@@ -168,7 +168,7 @@ management:
         include: health,info,metrics
   endpoint:
     health:
-      show-details: when-authorized
+      show-details: never
 
 # 日志配置
 logging:

@@ -2,6 +2,7 @@ package com.starlink.system.controller;
 
 import com.starlink.common.exception.BusinessException;
 import com.starlink.common.oss.FileService;
+import com.starlink.common.oss.FileUploadPolicy;
 import com.starlink.common.result.ErrorCode;
 import com.starlink.common.result.Result;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.BufferedInputStream;
 import java.util.Map;
 
 /**
@@ -40,8 +42,14 @@ public class FileController {
         if (file == null || file.isEmpty()) {
             throw new BusinessException(ErrorCode.PARAM_ERROR.getCode(), "上传文件不能为空");
         }
-        try {
-            String url = fileService.upload(file.getInputStream(), file.getOriginalFilename(), bizType);
+        String extension = FileUploadPolicy.safeExtension(file.getOriginalFilename());
+        FileUploadPolicy.safeBizType(bizType);
+        try (BufferedInputStream input = new BufferedInputStream(file.getInputStream())) {
+            input.mark(12);
+            byte[] header = input.readNBytes(12);
+            FileUploadPolicy.verifyImageSignature(extension, header);
+            input.reset();
+            String url = fileService.upload(input, file.getOriginalFilename(), bizType);
             log.info("文件上传成功: {} -> {}", file.getOriginalFilename(), url);
             return Result.ok(Map.of("url", url, "name", file.getOriginalFilename()));
         } catch (IOException e) {
