@@ -49,36 +49,32 @@ public class AiChatService {
 
     // === WebClient ===
 
-    private WebClient buildWebClient(ChatRequest req) {
-        String base = isNotBlank(req.getBaseUrl()) ? req.getBaseUrl() : config.getBaseUrl();
-        String key  = isNotBlank(req.getApiKey())  ? req.getApiKey()  : config.getApiKey();
-        return WebClient.builder().baseUrl(base)
+    private WebClient buildWebClient() {
+        return WebClient.builder().baseUrl(config.getBaseUrl())
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE)
-                .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + key).build();
+                .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + config.getApiKey()).build();
     }
-
-    private String model(ChatRequest req) { return isNotBlank(req.getModel()) ? req.getModel() : config.getModel(); }
-    private double temp(ChatRequest req) { return req.getTemperature() != null ? req.getTemperature() : config.getTemperature(); }
 
     // === 聊天（统一入口，返回含思考过程的完整响应） ===
 
     public ChatResponse chat(ChatRequest request) {
+        AiIdentity actor = AiIdentity.current();
         long start = System.currentTimeMillis();
-        String m = model(request);
+        String m = config.getModel();
         List<ThinkingStep> steps = new ArrayList<>();
         try {
             // 判断是否需要数据查询（决定是否注入数据库 schema 到系统提示词）
-            boolean needSchema = needsDataQuery(request.getMessage());
-            List<Map<String, Object>> msgs = buildMessages(request, needSchema);
-            // tools 总是发送（SQLCalling 查数据 + KnowledgeSearch 查规则），AI 自己判断该用哪个
-            String reply = fullResolve(buildWebClient(request), msgs, m, temp(request), true, steps);
+            boolean needSchema = actor.canQueryData() && needsDataQuery(request.getMessage());
+            List<Map<String, Object>> msgs = buildMessages(request, needSchema, actor);
+            // 仅管理角色可以使用数据库及知识库工具。
+            String reply = fullResolve(buildWebClient(), msgs, m, config.getTemperature(), actor.canQueryData(), steps);
             reply = cleanArtifacts(reply);
             long costMs = System.currentTimeMillis() - start;
             return new ChatResponse(reply, m, costMs, steps);
         } catch (Exception e) {
             log.error("AI chat error: {}", e.getMessage(), e);
             long costMs = System.currentTimeMillis() - start;
-            return new ChatResponse("AI 服务暂时不可用: " + e.getMessage(), m, costMs, steps);
+            return new ChatResponse("AI 服务暂时不可用，请稍后重试", m, costMs, steps);
         }
     }
 
@@ -106,7 +102,7 @@ public class AiChatService {
             body.put("max_tokens", config.getMaxTokens());
             body.put("temperature", temperature);
             body.put("stream", false);
-            if (sendTools) body.put("tools", toolDefinitions.getToolDefinitions());
+            if (sendTools) body.put("tools", toolDefinitions.getToolDefinitions(true));
 
             @SuppressWarnings("unchecked")
             Map<String, Object> result = wc.post().uri("/v1/chat/completions")
@@ -163,10 +159,11 @@ public class AiChatService {
      */
     public void streamChat(ChatRequest request, SseEmitter emitter) {
         try {
-            boolean needSchema = needsDataQuery(request.getMessage());
-            List<Map<String, Object>> msgs = buildMessages(request, needSchema);
-            WebClient wc = buildWebClient(request);
-            String m = model(request);
+            AiIdentity actor = AiIdentity.current();
+            boolean needSchema = actor.canQueryData() && needsDataQuery(request.getMessage());
+            List<Map<String, Object>> msgs = buildMessages(request, needSchema, actor);
+            WebClient wc = buildWebClient();
+            String m = config.getModel();
 
             // 客户端断开 / 超时 / 出错 → 置取消标志，工具循环与 LLM 调用立即停止
             AtomicBoolean cancelled = new AtomicBoolean(false);
@@ -175,7 +172,7 @@ public class AiChatService {
             emitter.onError(e -> cancelled.set(true));
 
             // 先跑 tool calling 循环（可取消），推送思考步骤事件
-            String finalText = runToolLoopAndStreamAnswer(wc, msgs, m, temp(request), emitter, cancelled);
+            String finalText = runToolLoopAndStreamAnswer(wc, msgs, m, config.getTemperature(), actor.canQueryData(), emitter, cancelled);
 
             if (cancelled.get()) {
                 // 客户端已断开（用户点击停止），不再推送任何内容，静默收尾
@@ -190,7 +187,7 @@ public class AiChatService {
         } catch (LlmCallException e) {
             // 后端 → 大模型出站调用失败（重试后仍失败）：必须通知前端，不能静默挂起
             log.error("AI 大模型调用失败: {}", e.getMessage());
-            sendErrorAndComplete(emitter, "AI 服务暂时不可用: " + e.getMessage());
+            sendErrorAndComplete(emitter, "AI 服务暂时不可用，请稍后重试");
         } catch (AsyncRequestNotUsableException e) {
             // 客户端断开（点停止 / 关页面 / 刷新）：SSE 正常现象，不打错误日志
             log.debug("客户端断开 SSE 连接（忽略）: {}", e.getMessage());
@@ -202,7 +199,7 @@ public class AiChatService {
                 return;
             }
             log.error("AI stream chat error: {}", e.getMessage(), e);
-            sendErrorAndComplete(emitter, "AI 服务暂时不可用: " + e.getMessage());
+            sendErrorAndComplete(emitter, "AI 服务暂时不可用，请稍后重试");
         }
     }
 
@@ -309,7 +306,7 @@ public class AiChatService {
      * 客户端断开（cancelled=true）时随时终止。
      */
     private String runToolLoopAndStreamAnswer(WebClient wc, List<Map<String, Object>> msgs,
-                                              String modelName, double temperature,
+                                              String modelName, double temperature, boolean allowSql,
                                               SseEmitter emitter, AtomicBoolean cancelled) {
         for (int round = 0; round < MAX_ROUNDS; round++) {
             if (cancelled.get()) return "已停止生成";
@@ -320,7 +317,7 @@ public class AiChatService {
             body.put("max_tokens", config.getMaxTokens());
             body.put("temperature", temperature);
             body.put("stream", false);
-            body.put("tools", toolDefinitions.getToolDefinitions());
+            if (allowSql) body.put("tools", toolDefinitions.getToolDefinitions(true));
 
             Map<String, Object> result = postChatCompletions(wc, body, cancelled);
             if (result == null) return "已停止生成"; // 客户端已取消
@@ -471,21 +468,26 @@ public class AiChatService {
 
     // === 消息构建 ===
 
-    private List<Map<String, Object>> buildMessages(ChatRequest req, boolean includeSchema) {
+    private List<Map<String, Object>> buildMessages(ChatRequest req, boolean includeSchema, AiIdentity actor) {
         List<Map<String, Object>> msgs = new ArrayList<>();
-        String sp = resolveSystemPrompt(req);
+        String sp = resolveSystemPrompt(actor);
         // 仅在需要数据查询时注入 schema 到系统提示词，避免纯聊天场景的 token 浪费
         if (includeSchema) {
             String schema = toolExecutor.getSchemaForPrompt();
             sp += "\n\n## 数据库表结构（starlink_attendant）\n" + schema;
         }
-        if (contextLoader.hasContext()) {
+        if (actor.canQueryData() && contextLoader.hasContext()) {
             sp += "\n\n## 项目业务上下文\n" + contextLoader.getContextContent();
         }
         msgs.add(Map.of("role", "system", "content", sp));
         if (req.getHistory() != null) {
-            for (ChatMessage m : req.getHistory()) {
-                msgs.add(Map.of("role", m.getRole(), "content", m.getContent()));
+            int start = Math.max(0, req.getHistory().size() - 20);
+            for (int i = start; i < req.getHistory().size(); i++) {
+                ChatMessage m = req.getHistory().get(i);
+                if (m != null && ("user".equals(m.getRole()) || "assistant".equals(m.getRole()))
+                        && m.getContent() != null) {
+                    msgs.add(Map.of("role", m.getRole(), "content", m.getContent().substring(0, Math.min(8000, m.getContent().length()))));
+                }
             }
         }
         msgs.add(Map.of("role", "user", "content", req.getMessage()));
@@ -493,28 +495,12 @@ public class AiChatService {
     }
 
     /**
-     * 根据请求角色选择系统提示词：
-     * role=user  → 用户端（顾客/会员）
-     * role=admin → 管理端（管理员）
-     * 其他/空   → 服务端默认
+     * 根据已验证的登录身份选择系统提示词。
      */
-    private String resolveSystemPrompt(ChatRequest req) {
-        String role = req.getRole();
-        String sp;
-        if (role == null || role.isBlank()) sp = config.getSystemPrompt();
-        else sp = switch (role.trim().toLowerCase()) {
-            case "user" -> config.getSystemPromptUser();
-            case "admin" -> config.getSystemPromptAdmin();
-            default -> config.getSystemPrompt();
-        };
-        // 登录用户信息注入：前端登录后把用户身份摘要随请求传入，作为"我的信息"
-        if (req.getUserInfo() != null && !req.getUserInfo().isBlank()) {
-            sp += "\n\n## 当前用户信息（我的信息）\n"
-                    + req.getUserInfo().trim()
-                    + "\n请结合以上用户身份、称呼、权限和场景友好、准确地回答；"
-                    + "涉及个人数据（余额、积分、消费记录等）时以此用户为准。";
-        }
-        return sp;
+    private String resolveSystemPrompt(AiIdentity actor) {
+        String sp = "admin".equals(actor.userType())
+                ? config.getSystemPromptAdmin() : config.getSystemPromptUser();
+        return sp + "\n\n当前已验证身份：" + actor.userType() + "，用户 ID：" + actor.userId() + "。";
     }
 
     // === 文本清洗 ===
@@ -550,7 +536,4 @@ public class AiChatService {
         return result.isEmpty() ? text.trim() : result;
     }
 
-    private static boolean isNotBlank(String s) {
-        return s != null && !s.isBlank();
-    }
 }

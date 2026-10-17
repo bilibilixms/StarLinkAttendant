@@ -16,8 +16,8 @@ public class AiToolDefinitions {
     /**
      * 获取所有可用工具的定义
      */
-    public List<Map<String, Object>> getToolDefinitions() {
-        return List.of(sqlCallingDef(), knowledgeSearchDef());
+    public List<Map<String, Object>> getToolDefinitions(boolean allowSql) {
+        return allowSql ? List.of(sqlCallingDef(), knowledgeSearchDef()) : List.of(knowledgeSearchDef());
     }
 
     /**
@@ -29,16 +29,15 @@ public class AiToolDefinitions {
             "type", "function",
             "function", Map.of(
                 "name", "SQLCalling",
-                "description", "Execute a SQL query against the starlink_attendant database and return the results. " +
-                    "ONLY SELECT statements are allowed. Results are limited to 100 rows. " +
-                    "The full database schema is already provided in the system prompt, so you can write SQL directly.",
+                "description", "Run one SELECT query over the approved reporting tables in the provided schema. " +
+                    "Results are limited to 100 rows. Subqueries, UNION, file functions and other tables are unavailable.",
                 "parameters", Map.of(
                     "type", "object",
                     "properties", Map.of(
                         "sql", Map.of(
                             "type", "string",
-                            "description", "The SQL SELECT statement to execute. Must be a valid MySQL SELECT query. " +
-                                "Do NOT include DROP/INSERT/UPDATE/DELETE. Always add WHERE deleted_at IS NULL and LIMIT <= 100."
+                            "description", "One MySQL SELECT query over the approved reporting tables. " +
+                                "Use explicit JOIN and WHERE deleted_at IS NULL where applicable."
                         )
                     ),
                     "required", List.of("sql")

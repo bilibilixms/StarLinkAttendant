@@ -26,6 +26,10 @@
             <groupId>com.starlink</groupId>
             <artifactId>starlink-common</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.starlink</groupId>
+            <artifactId>starlink-system</artifactId>
+        </dependency>
 
         <!-- RAG 向量检索模块：AI 对话时调用 RagVectorService 做知识库语义检索 -->
         <dependency>
@@ -61,6 +65,11 @@
         <dependency>
             <groupId>jakarta.validation</groupId>
             <artifactId>jakarta.validation-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
         </dependency>
     </dependencies>
 

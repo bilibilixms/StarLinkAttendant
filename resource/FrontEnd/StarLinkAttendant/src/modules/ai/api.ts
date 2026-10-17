@@ -10,14 +10,7 @@ export interface ChatMessage {
 export interface ChatRequest {
   message: string
   history?: ChatMessage[]
-  /** 覆盖服务端默认模型（可选） */
-  model?: string
-  /** 覆盖服务端 API 基础地址（可选） */
-  baseUrl?: string
-  /** 覆盖服务端 API Key（可选） */
-  apiKey?: string
-  /** 覆盖服务端温度参数（可选） */
-  temperature?: number
+  image?: string
 }
 
 export interface ThinkingStep {
@@ -101,22 +94,6 @@ export function getMinerUFileContent(name: string): Promise<ApiResponse<{ name: 
   return request.get(`/api/ai/minerU/files/${encodeURIComponent(name)}`) as any
 }
 
-/**
- * 读取当前登录管理员信息（localStorage key 与登录态一致：starlink_attendant_user）
- * 登录后 AI 会知道"我是谁"，结合身份回答；未登录返回空串
- */
-function getAdminUserInfo(): string {
-  try {
-    const raw = localStorage.getItem('starlink_attendant_user')
-    if (!raw) return ''
-    const u = JSON.parse(raw)
-    if (!u || !u.isLoggedIn) return ''
-    return JSON.stringify({ userId: u.userId, username: u.username, realName: u.realName, position: u.position })
-  } catch (e) {
-    return ''
-  }
-}
-
 // ============ 会话持久化（数据库 ai_chat_session / ai_chat_message） ============
 
 export interface AiSessionRow {
@@ -137,33 +114,15 @@ export interface AiSessionMessageRow {
   createTime: string
 }
 
-/** 当前登录身份（管理端）：userType=admin，userId 取员工 id，未登录为 null */
-function currentAdminIdentity(): { userType: string; userId: number | null; userName: string | null } {
-  try {
-    const raw = localStorage.getItem('starlink_attendant_user')
-    if (!raw) return { userType: 'admin', userId: null, userName: null }
-    const u = JSON.parse(raw)
-    if (!u || !u.isLoggedIn) return { userType: 'admin', userId: null, userName: null }
-    const uid = u.userId != null ? Number(u.userId) : null
-    const name = String(u.realName || u.username || '')
-    return { userType: 'admin', userId: Number.isNaN(uid as number) ? null : uid, userName: name || null }
-  } catch {
-    return { userType: 'admin', userId: null, userName: null }
-  }
-}
-
 /** 创建会话，返回后端会话记录（含 sessionNo） */
 export async function createAiSession(title?: string): Promise<AiSessionRow> {
-  const { userType, userId, userName } = currentAdminIdentity()
-  const res = await request.post('/api/ai/session', { userType, userId, userName, title })
+  const res = await request.post('/api/ai/session', { title })
   return res.data as AiSessionRow
 }
 
 /** 会话列表（元信息，不含消息） */
 export async function listAiSessions(): Promise<AiSessionRow[]> {
-  const { userType, userId } = currentAdminIdentity()
-  const q = userId != null ? `?userType=${userType}&userId=${userId}` : `?userType=${userType}`
-  const res = await request.get(`/api/ai/session/list${q}`)
+  const res = await request.get('/api/ai/session/list')
   return res.data as AiSessionRow[]
 }
 
@@ -201,7 +160,7 @@ export function parseDbTime(ts?: string | null): number {
 
 /** 聊天（统一使用 /chat 接口，后端同步完成全部 SQL 循环后返回最终答案） */
 export function sendChat(data: ChatRequest): Promise<ApiResponse<ChatResponse>> {
-  return request.post('/api/ai/chat', { ...data, role: 'admin', userInfo: getAdminUserInfo() }) as any
+  return request.post('/api/ai/chat', data) as any
 }
 
 /**
@@ -226,7 +185,7 @@ export async function sendChatStreamSSE(
         'Content-Type': 'application/json',
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ ...data, role: 'admin', userInfo: getAdminUserInfo() }),
+      body: JSON.stringify(data),
       signal,
     })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
