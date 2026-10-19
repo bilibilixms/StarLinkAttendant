@@ -23,11 +23,14 @@ public class DashboardResponse {
     /** 今日商品销量（今日商品销售订单数） */
     private Long todaySalesCount;
 
-    /** 机位总数 */
+    /** 正常机位总数（启用且空闲/使用中） */
     private Long totalSeats;
 
-    /** 空闲机位数 */
+    /** 没有活跃会话的正常机位数 */
     private Long availableSeats;
+
+    /** 有上机中会话的正常机位数（临时下机不计入） */
+    private Long inUseSeats;
 
     /** 今日新注册会员数 */
     private Long todayNewMembers;

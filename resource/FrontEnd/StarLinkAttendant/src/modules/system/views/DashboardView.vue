@@ -9,6 +9,7 @@ interface DashboardData {
   todaySalesCount: number
   totalSeats: number
   availableSeats: number
+  inUseSeats: number
   todayNewMembers: number
   todaySessionCount: number
 }
@@ -21,6 +22,7 @@ const stats = ref<DashboardData>({
   todaySalesCount: 0,
   totalSeats: 0,
   availableSeats: 0,
+  inUseSeats: 0,
   todayNewMembers: 0,
   todaySessionCount: 0,
 })
@@ -31,11 +33,10 @@ function formatMoney(val: number | null | undefined): string {
   return Number(val).toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-/** 机位使用率 */
+/** 正常机位中有上机中会话的比例 */
 function seatUsageRate(): string {
   if (!stats.value.totalSeats) return '0'
-  const used = stats.value.totalSeats - stats.value.availableSeats
-  return ((used / stats.value.totalSeats) * 100).toFixed(1)
+  return (((stats.value.inUseSeats ?? 0) / stats.value.totalSeats) * 100).toFixed(1)
 }
 
 async function fetchDashboard() {
@@ -129,7 +130,7 @@ onMounted(fetchDashboard)
         </div>
         <div class="stat-content">
           <span class="stat-value">{{ stats.availableSeats }}<span class="stat-unit">/{{ stats.totalSeats }}</span></span>
-          <span class="stat-label">空闲机位 / 总机位</span>
+          <span class="stat-label">空闲机位 / 正常机位</span>
         </div>
       </div>
 
@@ -141,7 +142,7 @@ onMounted(fetchDashboard)
         </div>
         <div class="stat-content">
           <span class="stat-value">{{ seatUsageRate() }}<span class="stat-unit">%</span></span>
-          <span class="stat-label">机位使用率</span>
+          <span class="stat-label">机位使用率（上机中 / 正常）</span>
         </div>
       </div>
 
