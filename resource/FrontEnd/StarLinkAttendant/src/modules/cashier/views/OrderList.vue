@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshRight, View, RefreshLeft } from '@element-plus/icons-vue'
 import { getOrderList, getOrderDetail, refundOrder } from '../api'
@@ -7,6 +7,11 @@ import { ORDER_STATUS_MAP, ORDER_TYPE_MAP, PAYMENT_METHOD_MAP } from '@/common/c
 import { formatMoney } from '@/common/utils/money'
 import { formatDate } from '@/common/utils/date'
 import type { OrderItem, OrderDetail } from '../types'
+import { useUserStore } from '@/stores/user'
+
+const userStore = useUserStore()
+const canRefund = computed(() => userStore.roles.some(role =>
+  role === 'ROLE_super_admin' || role === 'ROLE_store_manager'))
 
 const loading = ref(false)
 const tableData = ref<OrderItem[]>([])
@@ -145,7 +150,7 @@ const getOrderTypeTag = (type: number) => {
   return map[type] || { color: '#6b7280', label: '其他' }
 }
 
-onMounted(() => { fetchData() })
+onMounted(() => { fetchData(); userStore.fetchUserInfo() })
 </script>
 
 <template>
@@ -226,7 +231,7 @@ onMounted(() => { fetchData() })
         <el-table-column label="操作" min-width="200" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" :icon="View" @click="viewDetail(row)">详情</el-button>
-            <el-button v-if="row.status === 1 || row.status === 2" type="warning" link size="small" :icon="RefreshLeft" @click="handleRefund(row)">退款</el-button>
+            <el-button v-if="canRefund && (row.status === 1 || row.status === 2)" type="warning" link size="small" :icon="RefreshLeft" @click="handleRefund(row)">退款</el-button>
           </template>
         </el-table-column>
       </el-table>

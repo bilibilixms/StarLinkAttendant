@@ -1,7 +1,7 @@
 import request from '@/common/api/request'
 import type { PageRequest, PageResult } from '@/common/api/types'
 import type {
-  OrderItem, OrderDetail, PaymentRecordItem, RefundRecordItem,
+  OrderItem, OrderDetail, PaymentRecordItem, RefundRecordItem, BillRecord, BillQuery, BillSource,
   ShiftItem, SettlementItem,
   OrderQuery, RefundQuery, ShiftQuery, SettlementQuery,
   OrderCreateRequest, PaymentRequest, RefundRequest,
@@ -9,6 +9,14 @@ import type {
 } from '../types'
 
 // ========== 订单管理 ==========
+export function getBillList(params: PageRequest & BillQuery) {
+  return request.get<any, { data: PageResult<BillRecord> }>('/api/cashier/bills', { params })
+}
+
+export function getBillDetail(source: BillSource, id: number) {
+  return request.get<any, { data: BillRecord }>(`/api/cashier/bills/${source}/${id}`)
+}
+
 export function getOrderList(params: PageRequest & OrderQuery) {
   return request.get<any, { data: PageResult<OrderItem> }>('/api/cashier/orders', { params })
 }
