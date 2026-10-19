@@ -6,6 +6,7 @@ import com.starlink.member.dto.req.RechargeRequest;
 import com.starlink.member.service.BalanceService;
 import com.starlink.member.service.RechargeService;
 import com.starlink.system.security.SecurityUser;
+import com.starlink.system.entity.Employee;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -69,7 +70,7 @@ class RechargeConsistencyTest {
         cleanUp();
         campaignId = insertTestCampaign();
         memberId = insertTestMember(0L, 0L);
-        authenticateAsMember(memberId);
+        authenticateAsCashier();
     }
 
     @AfterEach
@@ -85,6 +86,7 @@ class RechargeConsistencyTest {
             jdbc.update("DELETE FROM member_balance_log WHERE member_id = ?", id);
             jdbc.update("DELETE FROM member_points_log WHERE member_id = ?", id);
             jdbc.update("DELETE FROM member_recharge WHERE member_id = ?", id);
+            jdbc.update("DELETE FROM member_growth_log WHERE member_id = ?", id);
         }
         jdbc.update("DELETE FROM member WHERE member_no LIKE 'TESTP1%'");
         jdbc.update("DELETE FROM member WHERE phone = ?", TEST_PHONE);
@@ -107,9 +109,15 @@ class RechargeConsistencyTest {
         return jdbc.queryForObject("SELECT id FROM member WHERE member_no = ?", Long.class, TEST_MEMBER_NO);
     }
 
-    /** 以会员身份放入 SecurityContext —— 充值服务有 P0-4 资源归属校验，不能绕过。 */
-    private void authenticateAsMember(Long id) {
-        SecurityUser user = new SecurityUser(id, TEST_PHONE, (byte) 1);
+    /** 现金充值由收银员确认；会员不能自行标记付款成功。 */
+    private void authenticateAsCashier() {
+        Long employeeId = jdbc.queryForObject("SELECT id FROM employee WHERE phone = ?", Long.class, "13800000003");
+        Employee employee = new Employee();
+        employee.setId(employeeId);
+        employee.setPhone("13800000003");
+        employee.setStatus((byte) 1);
+        employee.setIsActive((byte) 1);
+        SecurityUser user = new SecurityUser(employee, List.of(), List.of("ROLE_cashier"));
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken(user, null, user.getAuthorities()));
     }
@@ -286,7 +294,7 @@ class RechargeConsistencyTest {
         try {
             for (int i = 0; i < threads; i++) {
                 futures.add(pool.submit(() -> {
-                    authenticateAsMember(memberId); // SecurityContext 是线程局部的
+                    authenticateAsCashier(); // SecurityContext 是线程局部的
                     start.await();
                     try {
                         return rechargeService.recharge(request("100", "K-CONC-SAME"));
@@ -334,7 +342,7 @@ class RechargeConsistencyTest {
             for (int i = 0; i < threads; i++) {
                 final String key = "K-CONC-" + i;
                 futures.add(pool.submit(() -> {
-                    authenticateAsMember(memberId);
+                    authenticateAsCashier();
                     try {
                         start.await();
                         rechargeService.recharge(request("100", key));

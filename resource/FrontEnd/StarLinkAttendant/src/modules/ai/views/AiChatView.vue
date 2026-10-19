@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, reactive, computed, nextTick, onMounted, watch } from 'vue'
-import { ChatLineSquare, Promotion, Delete, Setting, Picture } from '@element-plus/icons-vue'
+import { ChatLineSquare, Promotion, Delete, Picture } from '@element-plus/icons-vue'
 import { sendChatStreamSSE, sendChat, getAiConfig, uploadMinerUDoc, listMinerUFiles, getMinerUFileContent, createAiSession, listAiSessions, getAiSessionDetail, addAiMessage, deleteAiSession, parseDbTime } from '../api'
-import type { ChatMessage, ChatRequest, ThinkingStep, MinerUFileInfo, AiSessionRow } from '../api'
+import type { ChatMessage, ThinkingStep, MinerUFileInfo, AiSessionRow } from '../api'
 import newChatIcon from '../img_data/new-chat.png'
 import historyIcon from '../img_data/lishihuihua.png'
 import uploadIcon from '../img_data/shangchuan.png'
@@ -15,7 +15,9 @@ let abortController: AbortController | null = null
 /** 简单 Markdown 渲染 */
 function renderMarkdown(text: string): string {
   if (!text) return ''
-  return text
+  const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+  return escaped
     .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
@@ -220,118 +222,25 @@ function loadSessions() {
 
 watch(messages, () => persistSession(), { deep: true })
 
-// ============ 设置状态 ============
-const STORAGE_KEY = 'ai-chat-settings'
-const settingsVisible = ref(false)
+// ============ 服务端 AI 配置状态 ============
 const serverConfigured = ref(false) // 服务端是否已配置 apiKey
-
-const settings = reactive({
-  provider: 'custom',   // 预设服务商
-  baseUrl: '',
-  apiKey: '',
-  model: '',
-})
-
-/** 预设服务商列表 */
-const PROVIDERS = [
-  { label: 'OpenAI',    value: 'openai',   baseUrl: 'https://api.openai.com',       models: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'] },
-  { label: 'DeepSeek',  value: 'deepseek', baseUrl: 'https://api.deepseek.com',      models: ['deepseek-chat', 'deepseek-reasoner'] },
-  { label: '通义千问',   value: 'qwen',     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode', models: ['qwen-turbo', 'qwen-plus', 'qwen-max'] },
-  { label: 'Ollama (本地)', value: 'ollama', baseUrl: 'http://localhost:11434',       models: ['qwen2.5', 'llama3', 'mistral'] },
-  { label: '自定义',     value: 'custom',   baseUrl: '',                             models: [] },
-]
-
-const currentProvider = ref(PROVIDERS[0]!)
-const modelInput = ref('') // 自定义模型名输入框
-
-function onProviderChange(val: string) {
-  const p = PROVIDERS.find(x => x.value === val)
-  if (p) {
-    currentProvider.value = p
-    settings.baseUrl = p.baseUrl
-    if (p.models.length > 0) {
-      settings.model = p.models[0] ?? ''
-      modelInput.value = ''
-    } else {
-      settings.model = ''
-      modelInput.value = ''
-    }
-  }
-}
-
-function onModelPresetChange(val: string) {
-  if (val === '__custom__') {
-    settings.model = modelInput.value
-  } else {
-    settings.model = val
-    modelInput.value = ''
-  }
-}
-
-/** 保存设置到 localStorage */
-function saveSettings() {
-  const data = {
-    provider: settings.provider,
-    baseUrl: settings.baseUrl,
-    apiKey: settings.apiKey,
-    model: settings.model,
-  }
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
-  settingsVisible.value = false
-}
-
-/** 重置为服务端默认配置 */
-function resetSettings() {
-  localStorage.removeItem(STORAGE_KEY)
-  settings.provider = 'custom'
-  settings.baseUrl = ''
-  settings.apiKey = ''
-  settings.model = ''
-  modelInput.value = ''
-  currentProvider.value = PROVIDERS[4]!
-  settingsVisible.value = false
-}
-
-/** 从 localStorage 加载设置 */
-function loadSettings() {
-  const raw = localStorage.getItem(STORAGE_KEY)
-  if (raw) {
-    try {
-      const data = JSON.parse(raw)
-      Object.assign(settings, data)
-      const p = PROVIDERS.find(x => x.value === data.provider)
-      if (p) currentProvider.value = p
-    } catch { /* ignore */ }
-  }
-}
-
-/** 获取请求级覆盖参数 */
-function getRequestOverrides(): Pick<ChatRequest, 'model' | 'baseUrl' | 'apiKey'> {
-  const overrides: any = {}
-  if (settings.model) overrides.model = settings.model
-  if (settings.baseUrl) overrides.baseUrl = settings.baseUrl
-  if (settings.apiKey) overrides.apiKey = settings.apiKey
-  return overrides
-}
 
 /** 当前显示用的模型名 */
 const displayModel = ref('')
 
 onMounted(async () => {
-  loadSettings()
+  // 旧版本把用户输入的 API Key 存在浏览器中；新版本统一使用服务端配置。
+  localStorage.removeItem('ai-chat-settings')
   loadSessions()
   if (messages.value.length > 0) scrollToBottom()
   try {
     const res = await getAiConfig()
     serverConfigured.value = res.data.apiKeyConfigured
-    if (!settings.model) displayModel.value = res.data.model
-    if (!settings.baseUrl) settings.baseUrl = res.data.baseUrl || ''
+    displayModel.value = res.data.model
   } catch {
     // 接口不可用时忽略
   }
 })
-
-watch(() => settings.model, (v) => { displayModel.value = v || '服务端默认' })
 
 // ============ 聊天逻辑 ============
 
@@ -365,7 +274,6 @@ async function handleSend() {
     const res = await sendChat({
       message: text,
       history: getHistory().slice(0, -1),
-      ...getRequestOverrides(),
     })
     aiMsg.content = res.data.reply
     aiMsg.loading = false
@@ -412,7 +320,6 @@ async function handleSendStream() {
       message: text,
       image: imageData || undefined,
       history: getHistory().slice(0, -1),
-      ...getRequestOverrides(),
     },
     // step 事件：思考步骤
     (step) => {
@@ -612,8 +519,8 @@ function handleKeydown(e: KeyboardEvent) {
       <div class="header-left">
         <el-icon :size="22" color="var(--color-primary)"><ChatLineSquare /></el-icon>
         <h3>AI 智能助手</h3>
-        <el-tag size="small" effect="plain" :type="serverConfigured || settings.apiKey ? 'success' : 'warning'">
-          {{ serverConfigured || settings.apiKey ? '在线' : '未配置Key' }}
+        <el-tag size="small" effect="plain" :type="serverConfigured ? 'success' : 'warning'">
+          {{ serverConfigured ? '在线' : '未配置Key' }}
         </el-tag>
         <el-tag v-if="displayModel" size="small" effect="plain" type="info" class="model-tag">
           {{ displayModel }}
@@ -628,9 +535,6 @@ function handleKeydown(e: KeyboardEvent) {
         </el-button>
         <el-button size="small" plain class="icon-btn" @click="openMinerU">
           <img :src="uploadIcon" class="btn-icon" alt="转换" /> 文档转换
-        </el-button>
-        <el-button :icon="Setting" size="small" plain @click="settingsVisible = true">
-          设置
         </el-button>
         <el-button :icon="Delete" size="small" type="danger" plain
           :disabled="messages.length === 0" @click="handleClear">
@@ -746,55 +650,6 @@ function handleKeydown(e: KeyboardEvent) {
         </el-button>
       </template>
     </el-drawer>
-
-    <!-- ===== 设置弹窗 ===== -->
-    <el-dialog v-model="settingsVisible" title="AI 模型设置" width="520px" :close-on-click-modal="false">
-      <el-form label-width="90px" label-position="top">
-        <!-- 服务商预设 -->
-        <el-form-item label="服务商">
-          <el-select v-model="settings.provider" @change="onProviderChange" style="width: 100%">
-            <el-option v-for="p in PROVIDERS" :key="p.value" :label="p.label" :value="p.value" />
-          </el-select>
-        </el-form-item>
-
-        <!-- API 基础地址 -->
-        <el-form-item label="API 地址">
-          <el-input v-model="settings.baseUrl" placeholder="https://api.openai.com"
-            :disabled="settings.provider !== 'custom'" />
-        </el-form-item>
-
-        <!-- API Key -->
-        <el-form-item label="API Key">
-          <el-input v-model="settings.apiKey" type="password" show-password
-            placeholder="sk-...（留空则使用服务端配置）" />
-          <div class="form-hint">不填写时使用服务端 application.yml 中配置的 Key</div>
-        </el-form-item>
-
-        <!-- 模型选择 -->
-        <el-form-item label="模型">
-          <template v-if="currentProvider.models.length > 0">
-            <el-select v-model="settings.model" @change="onModelPresetChange" style="width: 100%"
-              filterable allow-create default-first-option>
-              <el-option v-for="m in currentProvider.models" :key="m" :label="m" :value="m" />
-              <el-option label="✏️ 自定义输入..." value="__custom__" />
-            </el-select>
-            <el-input v-if="settings.model === '__custom__' || !currentProvider.models.includes(settings.model)"
-              v-model="modelInput" placeholder="输入模型名称" style="margin-top: 6px"
-              @input="settings.model = modelInput" />
-          </template>
-          <template v-else>
-            <el-input v-model="settings.model" placeholder="输入模型名称，如 qwen2.5" />
-          </template>
-          <div class="form-hint">留空则使用服务端默认模型</div>
-        </el-form-item>
-      </el-form>
-
-      <template #footer>
-        <el-button @click="resetSettings">重置为默认</el-button>
-        <el-button @click="settingsVisible = false">取消</el-button>
-        <el-button type="primary" @click="saveSettings">保存设置</el-button>
-      </template>
-    </el-dialog>
 
     <!-- MinerU 文档转换对话框 -->
     <el-dialog v-model="minerUVisible" title="MinerU 文档转换" width="640px" :close-on-click-modal="false">

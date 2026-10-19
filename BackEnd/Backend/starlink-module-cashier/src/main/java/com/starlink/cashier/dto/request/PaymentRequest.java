@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 @Data
 public class PaymentRequest {
 
-    /** 支付方式：1-现金 2-会员余额 */
+    /** 支付方式：1-现金 4-会员余额；在线支付须经支付通道回调确认 */
     @NotNull(message = "支付方式不能为空")
     private Integer paymentMethod;
 

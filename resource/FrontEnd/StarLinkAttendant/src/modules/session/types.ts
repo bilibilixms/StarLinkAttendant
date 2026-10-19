@@ -129,7 +129,6 @@ export interface SessionStartRequest {
 /** 下机请求 */
 export interface SessionEndRequest {
   sessionId: number
-  paidAmount?: number
 }
 
 /** 暂停请求 */

@@ -136,8 +136,6 @@ export interface RechargeRequest {
   memberId: number
   amount: number
   paymentMethod: number
-  operatorId?: number
-  campaignId?: number
   /**
    * 客户端幂等键：同一笔充值请求重复提交（重复点击/超时重试）必须复用同一个值，
    * 后端据此保证只入账一次。见 `@/common/utils/idempotent`。

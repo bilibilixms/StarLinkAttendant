@@ -82,11 +82,7 @@ public class OrderServiceImpl implements OrderService {
                 detail.getOrderType() != null ? detail.getOrderType().byteValue() : null));
         detail.setStatusLabel(getOrderStatusLabel(
                 detail.getStatus() != null ? detail.getStatus().byteValue() : null));
-        // Compute change amount
-        BigDecimal paid = detail.getPaidAmount() != null ? detail.getPaidAmount() : BigDecimal.ZERO;
-        BigDecimal payable = detail.getPayableAmount() != null ? detail.getPayableAmount() : BigDecimal.ZERO;
-        BigDecimal change = paid.subtract(payable);
-        detail.setChangeAmount(change.compareTo(BigDecimal.ZERO) > 0 ? change : BigDecimal.ZERO);
+        detail.setChangeAmount(BigDecimal.ZERO);
 
         // Load order items
         List<OrderItem> items = orderItemMapper.selectByOrderId(id);
@@ -95,6 +91,10 @@ public class OrderServiceImpl implements OrderService {
         PaymentRecord payment = paymentRecordMapper.selectByOrderId(id);
         if (payment != null) {
             detail.setPayment(convertPaymentResponse(payment));
+            if (payment.getPaymentMethod() == CommonConstants.PAY_TYPE_CASH
+                    && payment.getCashReceived() != null) {
+                detail.setChangeAmount(payment.getCashReceived().subtract(payment.getTotalAmount()));
+            }
         }
         // Load refund records
         List<RefundRecord> refunds = refundRecordMapper.selectByOrderId(id);
@@ -132,6 +132,9 @@ public class OrderServiceImpl implements OrderService {
         BigDecimal totalAmount = BigDecimal.ZERO;
         BigDecimal totalDiscount = BigDecimal.ZERO;
         for (OrderItemRequest itemReq : request.getItems()) {
+            if (itemReq.getQuantity() == null || itemReq.getQuantity() <= 0) {
+                throw new BusinessException(ErrorCode.PARAM_ERROR, "商品数量必须大于0");
+            }
             // Look up product info from product table
             ProductInfo product = productInfoMapper.selectById(itemReq.getProductId());
             if (product == null) {
@@ -142,11 +145,14 @@ public class OrderServiceImpl implements OrderService {
             BigDecimal unitPrice = (request.getMemberId() != null && product.getMemberPrice() != null)
                     ? product.getMemberPrice()
                     : product.getRetailPrice();
+            if (unitPrice == null || unitPrice.compareTo(BigDecimal.ZERO) < 0) {
+                throw new BusinessException(ErrorCode.PARAM_ERROR, "商品价格不合法");
+            }
 
             BigDecimal subtotal = unitPrice.multiply(BigDecimal.valueOf(itemReq.getQuantity()));
             BigDecimal discount = itemReq.getDiscount() != null ? itemReq.getDiscount() : BigDecimal.ZERO;
-            if (discount.compareTo(BigDecimal.ZERO) < 0) {
-                throw new BusinessException(ErrorCode.PARAM_ERROR, "折扣金额不能为负数");
+            if (discount.compareTo(BigDecimal.ZERO) < 0 || discount.compareTo(subtotal) > 0) {
+                throw new BusinessException(ErrorCode.PARAM_ERROR, "折扣金额必须在0到商品小计之间");
             }
 
             // Validate product is active
@@ -172,7 +178,10 @@ public class OrderServiceImpl implements OrderService {
         order.setTotalAmount(totalAmount);
         order.setDiscountAmount(totalDiscount);
         order.setPayableAmount(totalAmount.subtract(totalDiscount));
-        orderMapper.updateById(order);
+        if (order.getPayableAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "订单应付金额必须大于0");
+        }
+        requireOrderUpdated(order);
 
         return getOrderDetail(order.getId());
     }
@@ -180,7 +189,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public OrderDetailResponse payOrder(Long orderId, PaymentRequest request, Long operatorId) {
-        Order order = orderMapper.selectById(orderId);
+        Order order = orderMapper.selectByIdForUpdate(orderId);
         if (order == null) {
             throw new BusinessException(ErrorCode.ORDER_NOT_FOUND);
         }
@@ -200,9 +209,24 @@ public class OrderServiceImpl implements OrderService {
             }
         }
 
-        // Validate payment method
-        if (request.getPaymentMethod() == null || request.getPaymentMethod() < 1 || request.getPaymentMethod() > 4) {
-            throw new BusinessException(ErrorCode.PARAM_ERROR, "支付方式不合法（1-现金 2-微信 3-支付宝 4-余额）");
+        // 在线支付尚未接入可信回调，不能由请求直接标记为已收款。
+        if (request.getPaymentMethod() == null
+                || (request.getPaymentMethod() != CommonConstants.PAY_TYPE_CASH
+                    && request.getPaymentMethod() != CommonConstants.PAY_TYPE_BALANCE)) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "当前仅支持现金或会员余额支付");
+        }
+        if (order.getPayableAmount() == null || order.getPayableAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "订单应付金额不合法");
+        }
+        BigDecimal cashReceived = null;
+        if (request.getPaymentMethod() == CommonConstants.PAY_TYPE_CASH) {
+            cashReceived = request.getPaidAmount() == null ? order.getPayableAmount() : request.getPaidAmount();
+            if (cashReceived.compareTo(order.getPayableAmount()) < 0 || cashReceived.scale() > 2) {
+                throw new BusinessException(ErrorCode.PARAM_ERROR, "现金实收金额不能低于应付金额且最多两位小数");
+            }
+        } else if (request.getPaidAmount() != null
+                && request.getPaidAmount().compareTo(order.getPayableAmount()) != 0) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "余额支付金额必须等于应付金额");
         }
 
         PaymentRecord payment = new PaymentRecord();
@@ -211,6 +235,7 @@ public class OrderServiceImpl implements OrderService {
         payment.setMemberId(order.getMemberId());
         payment.setPaymentMethod(request.getPaymentMethod().byteValue());
         payment.setTotalAmount(order.getPayableAmount());
+        payment.setCashReceived(cashReceived);
         payment.setRefundAmount(BigDecimal.ZERO);
         payment.setPaymentStatus((byte) CommonConstants.PAY_STATUS_SUCCESS);
         payment.setPaidAt(LocalDateTime.now());
@@ -234,7 +259,7 @@ public class OrderServiceImpl implements OrderService {
         order.setStatus((byte) CommonConstants.ORDER_STATUS_PAID);
         order.setPaidAmount(order.getPayableAmount());
         order.setPaidAt(LocalDateTime.now());
-        orderMapper.updateById(order);
+        requireOrderUpdated(order);
 
         // 现金/微信/支付宝直接消费获得成长值（1元=1经验，向下取整）；余额支付不获得经验
         if (order.getMemberId() != null
@@ -255,7 +280,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public RefundResponse refundOrder(Long orderId, RefundRequest request, Long operatorId) {
-        Order order = orderMapper.selectById(orderId);
+        Order order = orderMapper.selectByIdForUpdate(orderId);
         if (order == null) {
             throw new BusinessException(ErrorCode.ORDER_NOT_FOUND);
         }
@@ -265,14 +290,30 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException(ErrorCode.ORDER_REFUND_DENIED);
         }
 
-        BigDecimal alreadyRefunded = getAlreadyRefundedAmount(orderId);
-        BigDecimal maxRefundable = order.getPaidAmount().subtract(alreadyRefunded);
+        PaymentRecord payment = paymentRecordMapper.selectByOrderId(orderId);
+        if (payment == null) {
+            throw new BusinessException(ErrorCode.ORDER_REFUND_DENIED);
+        }
+        int refundMethod = payment.getPaymentMethod();
+        if (refundMethod != CommonConstants.REFUND_METHOD_CASH
+                && refundMethod != CommonConstants.REFUND_METHOD_BALANCE) {
+            throw new BusinessException(ErrorCode.ORDER_REFUND_DENIED.getCode(), "线上支付退款尚未接入支付通道");
+        }
+        if (request.getRefundMethod() != null && request.getRefundMethod() != refundMethod) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "退款必须退回原支付方式");
+        }
+        if (request.getRefundAmount() == null || request.getRefundAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException(ErrorCode.PARAM_ERROR, "退款金额必须大于0");
+        }
+        BigDecimal alreadyRefunded = payment.getRefundAmount() == null ? BigDecimal.ZERO : payment.getRefundAmount();
+        alreadyRefunded = alreadyRefunded.max(getAlreadyRefundedAmount(orderId));
+        BigDecimal maxRefundable = payment.getTotalAmount().subtract(alreadyRefunded);
         if (request.getRefundAmount().compareTo(maxRefundable) > 0) {
             throw new BusinessException(ErrorCode.REFUND_AMOUNT_EXCEED);
         }
 
         BigDecimal cumulativeRefund = alreadyRefunded.add(request.getRefundAmount());
-        int refundType = cumulativeRefund.compareTo(order.getPaidAmount()) == 0
+        int refundType = cumulativeRefund.compareTo(payment.getTotalAmount()) == 0
                 ? CommonConstants.REFUND_TYPE_FULL
                 : CommonConstants.REFUND_TYPE_PARTIAL;
 
@@ -283,31 +324,27 @@ public class OrderServiceImpl implements OrderService {
         refund.setRefundAmount(request.getRefundAmount());
         refund.setRefundType((byte) refundType);
         refund.setRefundReason(request.getRefundReason());
-        refund.setRefundMethod(request.getRefundMethod() != null
-                ? request.getRefundMethod().byteValue()
-                : (byte) CommonConstants.REFUND_METHOD_CASH);
+        refund.setRefundMethod((byte) refundMethod);
         refund.setStatus((byte) CommonConstants.REFUND_STATUS_COMPLETED);
         refund.setAuditBy(operatorId);
         refund.setAuditAt(LocalDateTime.now());
         refund.setOperatorId(operatorId);
 
         // Update payment record
-        PaymentRecord payment = paymentRecordMapper.selectByOrderId(orderId);
-        if (payment != null) {
-            refund.setPaymentId(payment.getId());
-            payment.setRefundAmount(payment.getRefundAmount().add(request.getRefundAmount()));
-            if (payment.getRefundAmount().compareTo(payment.getTotalAmount()) >= 0) {
-                payment.setPaymentStatus((byte) CommonConstants.PAY_STATUS_REFUNDED);
-            }
-            paymentRecordMapper.updateById(payment);
+        refund.setPaymentId(payment.getId());
+        payment.setRefundAmount(cumulativeRefund);
+        if (cumulativeRefund.compareTo(payment.getTotalAmount()) == 0) {
+            payment.setPaymentStatus((byte) CommonConstants.PAY_STATUS_REFUNDED);
+        }
+        if (paymentRecordMapper.updateById(payment) != 1) {
+            throw new BusinessException(ErrorCode.CONFLICT.getCode(), "支付记录已变更，请重试");
         }
 
         refundRecordMapper.insert(refund);
         log.info("refund success: orderId={}, refundNo={}", orderId, refund.getRefundNo());
 
         // 退回余额：退款金额加回会员账户
-        if (request.getRefundMethod() != null
-                && request.getRefundMethod() == CommonConstants.REFUND_METHOD_BALANCE) {
+        if (refundMethod == CommonConstants.REFUND_METHOD_BALANCE) {
             if (order.getMemberId() == null) {
                 throw new BusinessException(ErrorCode.PARAM_ERROR.getCode(), "退回余额需订单绑定会员");
             }
@@ -320,11 +357,9 @@ public class OrderServiceImpl implements OrderService {
         } else {
             order.setStatus((byte) CommonConstants.ORDER_STATUS_PARTIAL_REFUND);
         }
-        orderMapper.updateById(order);
+        requireOrderUpdated(order);
 
         // Update active shift counters for refund
-        int refundMethod = request.getRefundMethod() != null
-                ? request.getRefundMethod() : CommonConstants.REFUND_METHOD_CASH;
         updateShiftOnTransaction(operatorId, request.getRefundAmount(), refundMethod, false);
 
         return convertRefundResponse(refund);
@@ -333,7 +368,7 @@ public class OrderServiceImpl implements OrderService {
     @Override
     @Transactional
     public void cancelOrder(Long orderId, Long operatorId) {
-        Order order = orderMapper.selectById(orderId);
+        Order order = orderMapper.selectByIdForUpdate(orderId);
         if (order == null) {
             throw new BusinessException(ErrorCode.ORDER_NOT_FOUND);
         }
@@ -341,7 +376,7 @@ public class OrderServiceImpl implements OrderService {
             throw new BusinessException(ErrorCode.ORDER_NOT_CANCELABLE);
         }
         order.setStatus((byte) CommonConstants.ORDER_STATUS_CANCELLED);
-        orderMapper.updateById(order);
+        requireOrderUpdated(order);
         log.info("cancel order: id={}", orderId);
     }
 
@@ -356,6 +391,12 @@ public class OrderServiceImpl implements OrderService {
     }
 
     // ==================== Private Helpers ====================
+
+    private void requireOrderUpdated(Order order) {
+        if (orderMapper.updateById(order) != 1) {
+            throw new BusinessException(ErrorCode.CONFLICT.getCode(), "订单已变更，请重试");
+        }
+    }
 
     private BigDecimal getAlreadyRefundedAmount(Long orderId) {
         List<RefundRecord> existing = refundRecordMapper.selectByOrderId(orderId);
@@ -380,7 +421,7 @@ public class OrderServiceImpl implements OrderService {
         if (operatorId == null) {
             return;
         }
-        CashierShift shift = shiftMapper.selectActiveShift(operatorId);
+        CashierShift shift = shiftMapper.selectActiveShiftForUpdate(operatorId);
         if (shift == null) {
             return;
         }
@@ -398,7 +439,9 @@ public class OrderServiceImpl implements OrderService {
             shift.setTotalIncome(shift.getTotalIncome().subtract(amount));
         }
         shift.setOrderCount(shift.getOrderCount() + (isPayment ? 1 : 0));
-        shiftMapper.updateById(shift);
+        if (shiftMapper.updateById(shift) != 1) {
+            throw new BusinessException(ErrorCode.CONFLICT.getCode(), "班次数据已变更，请重试");
+        }
     }
 
     private void enrichOrderLabels(OrderResponse r) {
@@ -414,9 +457,7 @@ public class OrderServiceImpl implements OrderService {
         if (r.getRefundType() != null) {
             r.setRefundTypeLabel(r.getRefundType() == 1 ? "\u5168\u989d\u9000\u6b3e" : "\u90e8\u5206\u9000\u6b3e");
         }
-        if (r.getRefundMethod() != null) {
-            r.setRefundMethodLabel(r.getRefundMethod() == 1 ? "\u73b0\u91d1\u9000" : "\u9000\u4f59\u989d");
-        }
+        if (r.getRefundMethod() != null) r.setRefundMethodLabel(getRefundMethodLabel(r.getRefundMethod().byteValue()));
         if (r.getStatus() != null) {
             String label = switch (r.getStatus()) {
                 case 0 -> "\u5f85\u5ba1\u6838";
@@ -451,9 +492,10 @@ public class OrderServiceImpl implements OrderService {
         r.setOrderId(p.getOrderId());
         r.setMemberId(p.getMemberId());
         r.setPaymentMethod(p.getPaymentMethod() != null ? p.getPaymentMethod().intValue() : null);
-        r.setPaymentMethodLabel(p.getPaymentMethod() != null && p.getPaymentMethod() == 1 ? "\u73b0\u91d1" : "\u4f1a\u5458\u4f59\u989d");
+        r.setPaymentMethodLabel(getPaymentMethodLabel(p.getPaymentMethod()));
         r.setTradeNo(p.getTradeNo());
         r.setTotalAmount(p.getTotalAmount());
+        r.setCashReceived(p.getCashReceived());
         r.setRefundAmount(p.getRefundAmount());
         r.setPaymentStatus(p.getPaymentStatus() != null ? p.getPaymentStatus().intValue() : null);
         String sLabel = switch (p.getPaymentStatus() != null ? p.getPaymentStatus() : 0) {
@@ -482,7 +524,7 @@ public class OrderServiceImpl implements OrderService {
         resp.setRefundTypeLabel(r.getRefundType() != null && r.getRefundType() == 1 ? "\u5168\u989d\u9000\u6b3e" : "\u90e8\u5206\u9000\u6b3e");
         resp.setRefundReason(r.getRefundReason());
         resp.setRefundMethod(r.getRefundMethod() != null ? r.getRefundMethod().intValue() : null);
-        resp.setRefundMethodLabel(r.getRefundMethod() != null && r.getRefundMethod() == 1 ? "\u73b0\u91d1\u9000" : "\u9000\u4f59\u989d");
+        resp.setRefundMethodLabel(getRefundMethodLabel(r.getRefundMethod()));
         resp.setStatus(r.getStatus() != null ? r.getStatus().intValue() : null);
         String sLabel = switch (r.getStatus() != null ? r.getStatus() : 0) {
             case 0 -> "\u5f85\u5ba1\u6838";
@@ -507,6 +549,28 @@ public class OrderServiceImpl implements OrderService {
             case 3 -> "\u5145\u503c";
             case 4 -> "\u5957\u9910";
             default -> "\u672a\u77e5";
+        };
+    }
+
+    private String getPaymentMethodLabel(Byte method) {
+        if (method == null) return "未知";
+        return switch (method) {
+            case 1 -> "现金";
+            case 2 -> "微信";
+            case 3 -> "支付宝";
+            case 4 -> "会员余额";
+            default -> "未知";
+        };
+    }
+
+    private String getRefundMethodLabel(Byte method) {
+        if (method == null) return "未知";
+        return switch (method) {
+            case 1 -> "现金退回";
+            case 2 -> "微信原路退回";
+            case 3 -> "支付宝原路退回";
+            case 4 -> "退回会员余额";
+            default -> "未知";
         };
     }
 

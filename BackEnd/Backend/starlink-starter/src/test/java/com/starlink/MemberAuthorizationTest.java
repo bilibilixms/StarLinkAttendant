@@ -118,6 +118,7 @@ class MemberAuthorizationTest {
             jdbc.update("DELETE FROM member_balance_log WHERE member_id = ?", id);
             jdbc.update("DELETE FROM member_recharge WHERE member_id = ?", id);
             jdbc.update("DELETE FROM member_points_log WHERE member_id = ?", id);
+            jdbc.update("DELETE FROM member_growth_log WHERE member_id = ?", id);
         }
         jdbc.update("DELETE FROM member WHERE member_no LIKE 'TESTP4%'");
         for (String phone : TEST_PHONES) {
@@ -196,6 +197,26 @@ class MemberAuthorizationTest {
             assertEquals(401, status(HttpMethod.GET, url, null),
                     url + " 匿名访问应返回 401");
         }
+    }
+
+    @Test
+    @DisplayName("AI 与运行指标接口按登录身份和角色限制访问")
+    void aiAndActuatorAccessBoundaries() {
+        assertEquals(401, status(HttpMethod.GET, "/api/ai/config", null),
+                "匿名用户不能读取 AI 配置");
+        assertEquals(200, status(HttpMethod.GET, "/api/ai/config", tokenA),
+                "已登录会员可以使用 AI 助手");
+        assertEquals(403, status(HttpMethod.GET, "/api/ai/minerU/files", tokenA),
+                "会员不能维护 AI 知识库");
+
+        assertEquals(200, status(HttpMethod.GET, "/actuator/health", null),
+                "健康检查应保持公开");
+        assertEquals(401, status(HttpMethod.GET, "/actuator/metrics", null),
+                "匿名用户不能读取运行指标");
+        assertEquals(403, status(HttpMethod.GET, "/actuator/metrics", tokenA),
+                "会员不能读取运行指标");
+        assertEquals(200, status(HttpMethod.GET, "/actuator/metrics", tokenAdmin),
+                "超级管理员可以读取运行指标");
     }
 
     /* ==================== TEST-P0-4-02/03/04 ==================== */
@@ -308,15 +329,19 @@ class MemberAuthorizationTest {
                 Map.of("phone", "13911111111")), "会员自助修改手机号应被拒绝");
         assertEquals(PHONE_A, row(PHONE_A).get("phone"), "A 的手机号被改动");
 
-        // 给自己充值：放行（会员账务自助写入路径）
-        ResponseEntity<String> rechargeResp = call(HttpMethod.POST, "/api/member/recharge", tokenA,
-                Map.of("memberId", memberAId, "amount", 10, "paymentMethod", 1));
-        assertEquals(0, codeOf(rechargeResp), "会员给本人充值应成功: " + rechargeResp.getBody());
+        // 会员不能自行声称已支付现金；只有收银员工能确认现金入账。
+        assertEquals(403, status(HttpMethod.POST, "/api/member/recharge", tokenA,
+                Map.of("memberId", memberAId, "amount", 10, "paymentMethod", 1)),
+                "会员自行提交现金充值应被拒绝");
 
         // 给别人充值：拒绝（资源归属）
         assertEquals(403, status(HttpMethod.POST, "/api/member/recharge", tokenA,
                 Map.of("memberId", memberBId, "amount", 10, "paymentMethod", 1)),
                 "会员给他人充值应被拒绝");
+
+        ResponseEntity<String> rechargeResp = call(HttpMethod.POST, "/api/member/recharge", tokenCashier,
+                Map.of("memberId", memberAId, "amount", 10, "paymentMethod", 1));
+        assertEquals(0, codeOf(rechargeResp), "收银员确认现金充值应成功: " + rechargeResp.getBody());
     }
 
     /* ==================== TEST-P0-4-09 ==================== */

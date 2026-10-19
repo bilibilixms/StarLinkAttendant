@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -37,49 +38,39 @@ public class AiSessionService {
     /**
      * 创建会话
      *
-     * @param userType user=用户端 / admin=管理端
-     * @param userId   归属用户ID（会员ID或管理员ID，未登录可为 null）
-     * @param userName 展示名（昵称/工号，可空）
      * @param title    会话标题（空则默认"新对话"）
      */
-    public Map<String, Object> createSession(String userType, Long userId, String userName, String title) {
+    @Transactional
+    public Map<String, Object> createSession(String title) {
+        AiIdentity actor = AiIdentity.current();
         String sessionNo = genSessionNo();
         String finalTitle = (title == null || title.isBlank()) ? "新对话" : title.trim();
         jdbcTemplate.update(
                 "INSERT INTO ai_chat_session (session_no, user_type, user_id, user_name, title) VALUES (?, ?, ?, ?, ?)",
                 sessionNo,
-                userType == null || userType.isBlank() ? "user" : userType,
-                userId,
-                userName,
+                actor.userType(),
+                actor.userId(),
+                actor.userName(),
                 finalTitle
         );
-        return getSessionByNo(sessionNo);
+        return getSessionByNo(sessionNo, actor);
     }
 
     /** 会话列表（不含消息，按更新时间倒序） */
-    public List<Map<String, Object>> listSessions(String userType, Long userId) {
-        String ut = userType == null || userType.isBlank() ? "user" : userType;
-        if (userId == null) {
-            return jdbcTemplate.queryForList(
-                    "SELECT id, session_no AS sessionNo, user_type AS userType, user_id AS userId, user_name AS userName, " +
-                            "title, message_count AS messageCount, created_at AS createTime, updated_at AS updateTime " +
-                            "FROM ai_chat_session WHERE user_type = ? AND user_id IS NULL AND deleted_at IS NULL " +
-                            "ORDER BY updated_at DESC, id DESC",
-                    ut
-            );
-        }
+    public List<Map<String, Object>> listSessions() {
+        AiIdentity actor = AiIdentity.current();
         return jdbcTemplate.queryForList(
                 "SELECT id, session_no AS sessionNo, user_type AS userType, user_id AS userId, user_name AS userName, " +
                         "title, message_count AS messageCount, created_at AS createTime, updated_at AS updateTime " +
                         "FROM ai_chat_session WHERE user_type = ? AND user_id = ? AND deleted_at IS NULL " +
                         "ORDER BY updated_at DESC, id DESC",
-                ut, userId
+                actor.userType(), actor.userId()
         );
     }
 
     /** 会话详情（含全部消息） */
     public Map<String, Object> getSessionDetail(String sessionNo) {
-        Map<String, Object> session = getSessionByNo(sessionNo);
+        Map<String, Object> session = getSessionByNo(sessionNo, AiIdentity.current());
         if (session == null) return null;
         List<Map<String, Object>> messages = jdbcTemplate.queryForList(
                 "SELECT id, role, content, thinking_json AS thinkingJson, cost_ms AS costMs, model, created_at AS createTime " +
@@ -93,9 +84,10 @@ public class AiSessionService {
     /**
      * 追加消息；若该会话标题仍为"新对话"且首条是用户提问，自动以提问前 20 字命名
      */
+    @Transactional
     public void addMessage(String sessionNo, String role, String content,
                            String thinkingJson, Integer costMs, String model) {
-        Map<String, Object> session = getSessionByNo(sessionNo);
+        Map<String, Object> session = getSessionByNo(sessionNo, AiIdentity.current());
         if (session == null) {
             throw new IllegalArgumentException("会话不存在: " + sessionNo);
         }
@@ -127,8 +119,9 @@ public class AiSessionService {
     }
 
     /** 逻辑删除会话（消息一并逻辑删除） */
+    @Transactional
     public void deleteSession(String sessionNo) {
-        Map<String, Object> session = getSessionByNo(sessionNo);
+        Map<String, Object> session = getSessionByNo(sessionNo, AiIdentity.current());
         if (session == null) return;
         Object sessionId = session.get("id");
         jdbcTemplate.update("UPDATE ai_chat_message SET deleted_at = CURRENT_TIMESTAMP WHERE session_id = ? AND deleted_at IS NULL", sessionId);
@@ -136,12 +129,13 @@ public class AiSessionService {
     }
 
     /** 按会话号查会话（未删除） */
-    private Map<String, Object> getSessionByNo(String sessionNo) {
+    private Map<String, Object> getSessionByNo(String sessionNo, AiIdentity actor) {
         List<Map<String, Object>> list = jdbcTemplate.queryForList(
                 "SELECT id, session_no AS sessionNo, user_type AS userType, user_id AS userId, user_name AS userName, " +
                         "title, message_count AS messageCount, created_at AS createTime, updated_at AS updateTime " +
-                        "FROM ai_chat_session WHERE session_no = ? AND deleted_at IS NULL LIMIT 1",
-                sessionNo
+                        "FROM ai_chat_session WHERE session_no = ? AND user_type = ? AND user_id = ? " +
+                        "AND deleted_at IS NULL LIMIT 1",
+                sessionNo, actor.userType(), actor.userId()
         );
         return list.isEmpty() ? null : list.get(0);
     }

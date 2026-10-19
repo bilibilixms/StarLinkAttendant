@@ -68,11 +68,11 @@ public interface IntegrationMapper {
 
     // ==================== member：实名认证核验 ====================
 
-    /** 按姓名 + 身份证号查找会员 */
-    @Select("SELECT id, member_no, real_name, phone, id_card, status " +
-            "FROM member WHERE real_name = #{realName} AND id_card = #{idCard} AND deleted_at IS NULL LIMIT 1")
+    /** 按姓名 + 身份证号摘要核验会员，不读取明文。 */
+    @Select("SELECT id FROM member WHERE real_name = #{realName} AND id_card_hash = #{idCardHash} " +
+            "AND deleted_at IS NULL LIMIT 1")
     Map<String, Object> selectMemberByNameAndIdCard(@Param("realName") String realName,
-                                                      @Param("idCard") String idCard);
+                                                      @Param("idCardHash") String idCardHash);
 
     // ==================== audit_log：通用操作日志（实名认证 / 公安审计 / 统一集成日志） ====================
 

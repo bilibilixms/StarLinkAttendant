@@ -3,7 +3,7 @@ import { ref, reactive, watch, onMounted, onUnmounted } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { Search, RefreshRight } from '@element-plus/icons-vue'
 import { getMemberList, createRecharge, getRechargeRecords, getRechargePreview } from '../api'
-import { PAYMENT_METHOD_MAP, RECHARGE_METHOD_MAP, RECHARGE_STATUS_MAP } from '@/common/constants'
+import { PAYMENT_METHOD_MAP, RECHARGE_STATUS_MAP } from '@/common/constants'
 import { formatMoney } from '@/common/utils/money'
 import { formatDate } from '@/common/utils/date'
 import { genIdempotentKey } from '@/common/utils/idempotent'
@@ -256,10 +256,8 @@ const handleRecordPageChange = (page: number) => {
         <el-form-item label="充值金额" prop="amount">
           <el-input-number v-model="rechargeForm.amount" :min="1" :max="99999" :precision="2" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="支付方式" prop="paymentMethod">
-          <el-radio-group v-model="rechargeForm.paymentMethod">
-            <el-radio v-for="(label, val) in RECHARGE_METHOD_MAP" :key="val" :value="Number(val)">{{ label }}</el-radio>
-          </el-radio-group>
+        <el-form-item label="支付方式">
+          现金（请确认收款后提交）
         </el-form-item>
         <!-- 金额明细：赠送与到账金额来自后端充值试算（活动阶梯规则由后端计算） -->
         <el-form-item v-if="preview" label="金额明细">

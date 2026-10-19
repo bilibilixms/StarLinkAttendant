@@ -21,6 +21,48 @@ export interface OrderItem {
   updatedAt: string
 }
 
+/** 统一账单：三种来源各自保留原始单据与金额口径 */
+export type BillSource = 'ORDER' | 'SESSION' | 'RECHARGE'
+export type BillCategory = 'PRODUCT' | 'SESSION' | 'RECHARGE'
+
+export interface BillRecord {
+  id: number
+  source: BillSource
+  category: BillCategory
+  billNo: string
+  memberId: number | null
+  memberName: string | null
+  sessionId: number | null
+  computerNo: string | null
+  totalAmount: number
+  discountAmount: number
+  payableAmount: number
+  paidAmount: number
+  refundAmount: number
+  netAmount: number
+  bonusAmount: number
+  balanceBefore: number | null
+  balanceAfter: number | null
+  paymentMethod: number | null
+  status: number
+  billedMinutes: number | null
+  billingStart: string | null
+  billingEnd: string | null
+  paidAt: string | null
+  createdAt: string
+  remark: string | null
+}
+
+export interface BillQuery {
+  source?: BillSource
+  category?: BillCategory
+  billNo?: string
+  memberId?: number
+  status?: number
+  startDate?: string
+  endDate?: string
+}
+
 /** 订单详情 */
 export interface OrderDetail extends OrderItem {
   changeAmount: number | null
@@ -53,6 +95,7 @@ export interface PaymentRecordItem {
   paymentMethodLabel: string
   tradeNo: string | null
   totalAmount: number
+  cashReceived: number | null
   refundAmount: number
   paymentStatus: number
   paymentStatusLabel: string

@@ -44,13 +44,17 @@ public class SecurityConfig {
                         // ---------- 公开接口 ----------
                         .requestMatchers("/api/auth/login", "/api/auth/refresh").permitAll()
                         .requestMatchers("/api/member/login", "/api/member/register").permitAll()
-                        // AI 助手：允许匿名访问；登录后前端会附带用户信息，由 AI 模块注入提示词
-                        .requestMatchers("/api/ai/**").permitAll()
-                        .requestMatchers("/actuator/**").permitAll()
+                        // 知识库维护仅限管理员；聊天与会话必须有可信的登录身份
+                        .requestMatchers("/api/ai/minerU/**")
+                        .hasAnyRole("super_admin", "store_manager")
+                        .requestMatchers("/api/ai/**").authenticated()
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator", "/actuator/**").hasRole("super_admin")
                         .requestMatchers("/uploads/**").permitAll()
 
                         // ---------- 会员自助白名单（会员或员工；归属由 Service 校验） ----------
-                        .requestMatchers(HttpMethod.POST, "/api/member/recharge").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/member/recharge")
+                        .hasAnyRole("super_admin", "store_manager", "cashier")
                         // 充值试算（只读预演，不产生写入）：会员需在提交前看到活动赠送与到账金额。
                         // 归属校验同样在 Service 层完成（assertMemberLedgerAccess）。
                         .requestMatchers(HttpMethod.GET, "/api/member/recharge/preview").authenticated()
