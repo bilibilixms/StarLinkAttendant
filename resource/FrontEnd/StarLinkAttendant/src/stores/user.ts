@@ -47,7 +47,7 @@ export const useUserStore = defineStore('user', () => {
 
   const logout = async () => {
     try {
-      await request.post('/api/auth/logout')
+      await request.post('/api/auth/logout', { refreshToken: getRefreshToken() })
     } catch {
       // ignore
     }

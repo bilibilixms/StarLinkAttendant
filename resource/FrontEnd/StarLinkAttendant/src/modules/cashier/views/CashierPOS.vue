@@ -5,7 +5,6 @@ import { Search, Plus, Minus, Delete, ShoppingCart, User, Money, Goods } from '@
 import { getProductList, getCategoryTree } from '@/modules/product/api'
 import { createOrder, payOrder } from '../api'
 import { useCartStore } from '../stores'
-import { PAYMENT_METHOD_MAP } from '@/common/constants'
 import { formatMoney } from '@/common/utils/money'
 import type { ProductItem, CategoryItem } from '@/modules/product/types'
 
@@ -17,6 +16,8 @@ const activeCategoryId = ref<number | null>(null)
 const searchKeyword = ref('')
 const payDialogVisible = ref(false)
 const selectedPayMethod = ref(1)
+const cashReceived = ref(0)
+const supportedPaymentMethods = [{ value: 1, label: '现金' }, { value: 4, label: '会员余额' }]
 const memberSearchVisible = ref(false)
 const memberPhone = ref('')
 const paying = ref(false)
@@ -91,11 +92,20 @@ const handlePay = () => {
     return
   }
   selectedPayMethod.value = 1
+  cashReceived.value = cart.totalAmount
   payDialogVisible.value = true
 }
 
 const confirmPay = async () => {
   if (paying.value) return
+  if (selectedPayMethod.value === 4 && !cart.memberId) {
+    ElMessage.warning('余额支付需先绑定会员')
+    return
+  }
+  if (selectedPayMethod.value === 1 && Math.round(cashReceived.value * 100) < Math.round(cart.totalAmount * 100)) {
+    ElMessage.warning('现金实收金额不能低于应付金额')
+    return
+  }
   paying.value = true
   try {
     const orderRes = await createOrder({
@@ -104,8 +114,12 @@ const confirmPay = async () => {
       remark: cart.remark || undefined,
       items: cart.items.map(i => ({ productId: i.productId, quantity: i.quantity })),
     })
-    await payOrder(orderRes.data.id, { paymentMethod: selectedPayMethod.value })
-    ElMessage.success({ message: '支付成功！', duration: 2000 })
+    await payOrder(orderRes.data.id, {
+      paymentMethod: selectedPayMethod.value,
+      ...(selectedPayMethod.value === 1 ? { paidAmount: cashReceived.value } : {}),
+    })
+    const change = selectedPayMethod.value === 1 ? Math.max(0, cashReceived.value - cart.totalAmount) : 0
+    ElMessage.success({ message: change > 0 ? `支付成功，找零 ¥${formatMoney(change)}` : '支付成功！', duration: 3000 })
     cart.clearCart()
     payDialogVisible.value = false
   } catch { /* handled */ }
@@ -326,19 +340,25 @@ onMounted(() => { fetchProducts(); fetchCategories() })
           <div class="pay-method-label">支付方式</div>
           <div class="pay-method-options">
             <div
-              v-for="(label, val) in PAYMENT_METHOD_MAP"
-              :key="val"
+              v-for="method in supportedPaymentMethods"
+              :key="method.value"
               class="pay-method-card"
-              :class="{ active: selectedPayMethod === Number(val) }"
-              @click="selectedPayMethod = Number(val)"
+              :class="{ active: selectedPayMethod === method.value }"
+              @click="selectedPayMethod = method.value"
             >
               <el-icon :size="20">
-                <Money v-if="Number(val) === 1" />
+                <Money v-if="method.value === 1" />
                 <User v-else />
               </el-icon>
-              <span>{{ label }}</span>
+              <span>{{ method.label }}</span>
             </div>
           </div>
+        </div>
+
+        <div v-if="selectedPayMethod === 1" class="pay-member-info">
+          <span>现金实收</span>
+          <el-input-number v-model="cashReceived" :min="0" :precision="2" style="width: 150px" />
+          <span>找零 ¥{{ formatMoney(Math.max(0, cashReceived - cart.totalAmount)) }}</span>
         </div>
 
         <div v-if="cart.memberId" class="pay-member-info">

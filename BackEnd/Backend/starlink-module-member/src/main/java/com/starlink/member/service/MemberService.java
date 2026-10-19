@@ -6,6 +6,7 @@ import com.starlink.common.exception.BusinessException;
 import com.starlink.common.result.ErrorCode;
 import com.starlink.common.util.PageQuery;
 import com.starlink.common.util.PageResult;
+import com.starlink.common.util.IdCardProtector;
 import com.starlink.member.dto.req.BlacklistRequest;
 import com.starlink.member.dto.req.MemberLoginRequest;
 import com.starlink.member.dto.req.MemberQueryRequest;
@@ -42,6 +43,7 @@ public class MemberService {
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenUtil jwtTokenUtil;
     private final MemberAccessGuard accessGuard;
+    private final IdCardProtector idCardProtector;
 
     /**
      * 会员端登录（小程序）：手机号 + 密码。
@@ -129,7 +131,8 @@ public class MemberService {
         member.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         member.setRealName(request.getRealName());
         member.setGender(request.getGender());
-        member.setIdCard(request.getIdCard());
+        member.setIdCard(null);
+        member.setIdCardHash(StringUtils.hasText(request.getIdCard()) ? idCardProtector.hash(request.getIdCard()) : null);
         member.setBirthday(request.getBirthday());
         member.setLevelId(getDefaultLevelId());
         member.setTotalPoints(0L);
@@ -175,7 +178,11 @@ public class MemberService {
             member.setPhone(request.getPhone());
         }
         if (StringUtils.hasText(request.getIdCard())) {
-            member.setIdCard(request.getIdCard());
+            member.setIdCardHash(idCardProtector.hash(request.getIdCard()));
+            member.setIdCard(null);
+        } else if (StringUtils.hasText(member.getIdCard())) {
+            member.setIdCardHash(idCardProtector.hash(member.getIdCard()));
+            member.setIdCard(null);
         }
         if (request.getBirthday() != null) {
             member.setBirthday(request.getBirthday());

@@ -5,7 +5,6 @@ import com.starlink.session.entity.Session;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
-import org.apache.ibatis.annotations.Update;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -39,6 +38,12 @@ public interface SessionMapper extends BaseMapper<Session> {
     @Select("SELECT balance FROM member WHERE id = #{memberId} AND deleted_at IS NULL")
     BigDecimal selectMemberBalance(@Param("memberId") Long memberId);
 
+    @Select("SELECT status FROM member WHERE id = #{memberId} AND deleted_at IS NULL FOR UPDATE")
+    Byte selectMemberStatusForUpdate(@Param("memberId") Long memberId);
+
+    @Select("SELECT * FROM session WHERE id = #{id} AND deleted_at IS NULL FOR UPDATE")
+    Session selectByIdForUpdate(@Param("id") Long id);
+
     /**
      * 根据会员姓名模糊查询会员 ID 列表（跨模块查询 member 表）。
      */
@@ -56,15 +61,4 @@ public interface SessionMapper extends BaseMapper<Session> {
             "FROM tariff_rate WHERE plan_id = #{planId} AND deleted_at IS NULL")
     List<Map<String, Object>> selectTariffRates(@Param("planId") Long planId);
 
-    /**
-     * 扣减会员钱包余额并更新累计消费（跨模块操作 member 表）。
-     *
-     * @param memberId 会员 ID
-     * @param amount   扣减金额
-     * @return 影响行数（1=成功，0=余额不足或会员不存在）
-     */
-    @Update("UPDATE member SET balance = balance - #{amount}, " +
-            "total_consumption = total_consumption + #{amount} " +
-            "WHERE id = #{memberId} AND deleted_at IS NULL AND balance >= #{amount}")
-    int deductMemberBalance(@Param("memberId") Long memberId, @Param("amount") BigDecimal amount);
 }

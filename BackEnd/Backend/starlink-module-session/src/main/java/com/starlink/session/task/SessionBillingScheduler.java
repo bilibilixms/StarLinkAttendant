@@ -2,6 +2,8 @@ package com.starlink.session.task;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.starlink.session.service.TariffCalculator;
+import com.starlink.member.service.BalanceService;
+import com.starlink.common.constant.CommonConstants;
 import com.starlink.session.entity.BillingRecord;
 import com.starlink.session.entity.Computer;
 import com.starlink.session.entity.Session;
@@ -15,6 +17,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -44,6 +47,8 @@ public class SessionBillingScheduler {
     private final ComputerMapper computerMapper;
     private final BillingRecordMapper billingRecordMapper;
     private final TariffCalculator tariffCalculator;
+    private final BalanceService balanceService;
+    private final TransactionTemplate transactionTemplate;
     /**
      * 时间来源：生产为系统时钟；测试/调试注入可推进的仿真时钟后，
      * 一次 tick 即可按「快进后的时间」结算，从而几秒内验证数小时的计费过程。
@@ -66,7 +71,14 @@ public class SessionBillingScheduler {
         int updatedCount = 0;
         for (Session session : activeSessions) {
             try {
-                if (updateSessionBillingAmounts(session)) {
+                Boolean changed = transactionTemplate.execute(status -> {
+                    Session locked = sessionMapper.selectByIdForUpdate(session.getId());
+                    if (locked == null || (locked.getStatus() != 0 && locked.getStatus() != 1)) {
+                        return false;
+                    }
+                    return updateSessionBillingAmounts(locked);
+                });
+                if (Boolean.TRUE.equals(changed)) {
                     updatedCount++;
                 }
             } catch (Exception e) {
@@ -247,6 +259,7 @@ public class SessionBillingScheduler {
      * 结束计时段 → 扣款（扣多少算多少） → 设置强制下机状态 → 释放机位。
      */
     private void forceEndSessionDueToInsufficientBalance(Session session, BigDecimal totalAmount, LocalDateTime now) {
+        Computer computer = computerMapper.selectByIdForUpdate(session.getComputerId());
         // 1. 结束当前未结束的计时段
         List<SessionTiming> openTimings = sessionTimingMapper.selectList(
                 new LambdaQueryWrapper<SessionTiming>()
@@ -276,16 +289,9 @@ public class SessionBillingScheduler {
         totalMinutes = Math.max(totalMinutes, 1);
         BigDecimal finalAmount = tariffCalculator.calculate(totalMinutes, session.getTariffPlanId());
 
-        // 3. 尝试扣款（余额不足时扣现有余额）
-        BigDecimal balance = sessionMapper.selectMemberBalance(session.getMemberId());
-        BigDecimal deductAmount = (balance != null && balance.compareTo(BigDecimal.ZERO) > 0)
-                ? balance.min(finalAmount)
-                : BigDecimal.ZERO;
-        if (deductAmount.compareTo(BigDecimal.ZERO) > 0) {
-            sessionMapper.deductMemberBalance(session.getMemberId(), deductAmount);
-            log.info("余额不足强制下机扣款: memberId={}, deductAmount={}, finalAmount={}",
-                    session.getMemberId(), deductAmount, finalAmount);
-        }
+        // 3. 锁定会员账户后扣除可用余额，并将未付金额留在计费记录中。
+        BigDecimal deductAmount = balanceService.deductAvailableBalance(session.getMemberId(), finalAmount,
+                (byte) CommonConstants.BALANCE_BIZ_CONSUME, session.getId(), "余额不足强制下机");
 
         // 4. 更新会话状态
         session.setEndTime(now);
@@ -315,13 +321,16 @@ public class SessionBillingScheduler {
         record.setFinalAmount(finalAmount.subtract(discountAmount));
         record.setBillingStart(session.getStartTime());
         record.setBillingEnd(now);
-        record.setIsSettled((byte) 0);
+        boolean settled = deductAmount.compareTo(finalAmount.subtract(discountAmount)) >= 0;
+        record.setIsSettled((byte) (settled ? 1 : 0));
+        if (settled) {
+            record.setSettledAt(now);
+        }
         billingRecordMapper.insert(record);
         log.info("余额不足强制下机计费记录已写入: sessionId={}, recordNo={}, finalAmount={}",
                 session.getId(), record.getRecordNo(), finalAmount);
 
         // 6. 释放机位
-        Computer computer = computerMapper.selectById(session.getComputerId());
         if (computer != null) {
             computer.setStatus((byte) 0);
             computerMapper.updateById(computer);

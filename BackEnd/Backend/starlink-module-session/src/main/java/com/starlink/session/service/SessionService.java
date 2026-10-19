@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.starlink.common.exception.BusinessException;
+import com.starlink.common.constant.CommonConstants;
 import com.starlink.common.result.ErrorCode;
+import com.starlink.member.service.BalanceService;
 import com.starlink.common.util.PageQuery;
 import com.starlink.common.util.PageResult;
 import com.starlink.common.utils.NumberGenerator;
@@ -52,6 +54,7 @@ public class SessionService {
     private final SessionTimingMapper sessionTimingMapper;
     private final ComputerMapper computerMapper;
     private final BillingRecordMapper billingRecordMapper;
+    private final BalanceService balanceService;
     /**
      * 预约管理服务：上机成功后联动把会员当天有效预约（待确认/已确认）置为「已上机」。
      */
@@ -76,9 +79,18 @@ public class SessionService {
     @Transactional
     public SessionResponse startSession(SessionStartRequest request) {
         // 1. 检查机位是否存在
-        Computer computer = computerMapper.selectById(request.getComputerId());
+        Computer computer = computerMapper.selectByIdForUpdate(request.getComputerId());
         if (computer == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "机位不存在");
+        }
+        if (computer.getIsActive() != null && computer.getIsActive() == 0) {
+            throw new BusinessException(ErrorCode.CONFLICT, "机位已停用");
+        }
+        if (request.getMemberId() != null) {
+            Byte status = sessionMapper.selectMemberStatusForUpdate(request.getMemberId());
+            if (status == null || status != 1) {
+                throw new BusinessException(ErrorCode.CONFLICT, "会员不存在或状态异常");
+            }
         }
 
         // 2. 基于活跃会话判断机位是否真正被占用（与 getSeatMap/getSeatStatus 逻辑一致）
@@ -159,13 +171,14 @@ public class SessionService {
      */
     @Transactional
     public SessionResponse endSession(SessionEndRequest request) {
-        Session session = sessionMapper.selectById(request.getSessionId());
+        Session session = sessionMapper.selectByIdForUpdate(request.getSessionId());
         if (session == null) {
             throw new BusinessException(ErrorCode.SESSION_NOT_FOUND);
         }
-        if (session.getStatus() == 2 || session.getStatus() == 3) {
+        if (session.getStatus() != 0 && session.getStatus() != 1) {
             throw new BusinessException(ErrorCode.SESSION_ALREADY_ENDED);
         }
+        Computer computer = computerMapper.selectByIdForUpdate(session.getComputerId());
 
         LocalDateTime now = LocalDateTime.now(clock);
 
@@ -186,20 +199,14 @@ public class SessionService {
         session.setTotalAmount(totalAmount);
 
         // 5. 钱包扣款
-        if (session.getMemberId() != null && totalAmount.compareTo(BigDecimal.ZERO) > 0) {
-            int rows = sessionMapper.deductMemberBalance(session.getMemberId(), totalAmount);
-            if (rows > 0) {
-                session.setPaidAmount(totalAmount);
-                log.info("下机扣款成功: memberId={}, amount={}", session.getMemberId(), totalAmount);
-            } else {
-                log.warn("下机扣款失败（余额不足）: memberId={}, amount={}", session.getMemberId(), totalAmount);
-                String remark = (session.getRemark() != null ? session.getRemark() + "; " : "") + "余额不足，未扣款";
-                session.setRemark(remark);
+        if (totalAmount.compareTo(BigDecimal.ZERO) > 0) {
+            if (session.getMemberId() == null) {
+                throw new BusinessException(ErrorCode.CONFLICT, "散客会话需通过已核实的收款流程结算");
             }
+            balanceService.deductBalance(session.getMemberId(), totalAmount,
+                    (byte) CommonConstants.BALANCE_BIZ_CONSUME, session.getId(), "上机会话结算");
         }
-        if (request.getPaidAmount() != null) {
-            session.setPaidAmount(request.getPaidAmount());
-        }
+        session.setPaidAmount(totalAmount);
         session.setStatus((byte) 2); // 已下机
         sessionMapper.updateById(session);
 
@@ -207,7 +214,6 @@ public class SessionService {
         createBillingRecord(session, totalMinutes, totalAmount);
 
         // 7. 释放机位
-        Computer computer = computerMapper.selectById(session.getComputerId());
         if (computer != null) {
             computer.setStatus((byte) 0); // 空闲
             computerMapper.updateById(computer);
@@ -226,7 +232,7 @@ public class SessionService {
      */
     @Transactional
     public SessionResponse pauseSession(SessionPauseRequest request) {
-        Session session = sessionMapper.selectById(request.getSessionId());
+        Session session = sessionMapper.selectByIdForUpdate(request.getSessionId());
         if (session == null) {
             throw new BusinessException(ErrorCode.SESSION_NOT_FOUND);
         }
@@ -263,7 +269,7 @@ public class SessionService {
      */
     @Transactional
     public SessionResponse resumeSession(SessionResumeRequest request) {
-        Session session = sessionMapper.selectById(request.getSessionId());
+        Session session = sessionMapper.selectByIdForUpdate(request.getSessionId());
         if (session == null) {
             throw new BusinessException(ErrorCode.SESSION_NOT_FOUND);
         }
@@ -317,7 +323,7 @@ public class SessionService {
      */
     @Transactional
     public SessionResponse transferSession(SessionTransferRequest request) {
-        Session session = sessionMapper.selectById(request.getSessionId());
+        Session session = sessionMapper.selectByIdForUpdate(request.getSessionId());
         if (session == null) {
             throw new BusinessException(ErrorCode.SESSION_NOT_FOUND);
         }
@@ -326,7 +332,7 @@ public class SessionService {
         }
 
         // 1. 验证目标机位
-        Computer targetComputer = computerMapper.selectById(request.getTargetComputerId());
+        Computer targetComputer = computerMapper.selectByIdForUpdate(request.getTargetComputerId());
         if (targetComputer == null) {
             throw new BusinessException(ErrorCode.NOT_FOUND, "目标机位不存在");
         }
@@ -384,13 +390,14 @@ public class SessionService {
      */
     @Transactional
     public SessionResponse forceEndSession(ForceEndRequest request) {
-        Session session = sessionMapper.selectById(request.getSessionId());
+        Session session = sessionMapper.selectByIdForUpdate(request.getSessionId());
         if (session == null) {
             throw new BusinessException(ErrorCode.SESSION_NOT_FOUND);
         }
-        if (session.getStatus() == 2 || session.getStatus() == 3) {
+        if (session.getStatus() != 0 && session.getStatus() != 1) {
             throw new BusinessException(ErrorCode.SESSION_ALREADY_ENDED);
         }
+        Computer computer = computerMapper.selectByIdForUpdate(session.getComputerId());
 
         LocalDateTime now = LocalDateTime.now(clock);
 
@@ -410,15 +417,10 @@ public class SessionService {
         session.setTotalAmount(totalAmount);
 
         // 5. 钱包扣款
-        if (session.getMemberId() != null && totalAmount.compareTo(BigDecimal.ZERO) > 0) {
-            int rows = sessionMapper.deductMemberBalance(session.getMemberId(), totalAmount);
-            if (rows > 0) {
-                session.setPaidAmount(totalAmount);
-                log.info("强制下机扣款成功: memberId={}, amount={}", session.getMemberId(), totalAmount);
-            } else {
-                log.warn("强制下机扣款失败（余额不足）: memberId={}, amount={}", session.getMemberId(), totalAmount);
-            }
-        }
+        session.setPaidAmount(session.getMemberId() != null
+                ? balanceService.deductAvailableBalance(session.getMemberId(), totalAmount,
+                        (byte) CommonConstants.BALANCE_BIZ_CONSUME, session.getId(), "强制下机扣款")
+                : BigDecimal.ZERO);
 
         String reason = request.getReason() != null ? request.getReason() : "";
         session.setStatus((byte) 3); // 强制下机
@@ -429,7 +431,6 @@ public class SessionService {
         createBillingRecord(session, totalMinutes, totalAmount);
 
         // 7. 释放机位
-        Computer computer = computerMapper.selectById(session.getComputerId());
         if (computer != null) {
             computer.setStatus((byte) 0);
             computerMapper.updateById(computer);
@@ -862,7 +863,12 @@ public class SessionService {
         record.setFinalAmount(totalAmount.subtract(discountAmount));
         record.setBillingStart(session.getStartTime());
         record.setBillingEnd(session.getEndTime());
-        record.setIsSettled((byte) 0);
+        boolean settled = session.getPaidAmount() != null
+                && session.getPaidAmount().compareTo(record.getFinalAmount()) >= 0;
+        record.setIsSettled((byte) (settled ? 1 : 0));
+        if (settled) {
+            record.setSettledAt(session.getEndTime());
+        }
 
         billingRecordMapper.insert(record);
         log.info("计费记录已写入: sessionId={}, recordNo={}, totalAmount={}, finalAmount={}",

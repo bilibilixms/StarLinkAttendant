@@ -107,7 +107,7 @@ public class CouponController {
     @PostMapping("/{id}/issue")
     public Result<Integer> issueCoupon(
             @PathVariable Long id,
-            @RequestBody CouponIssueRequest request) {
+            @Valid @RequestBody CouponIssueRequest request) {
         log.info("发放优惠券，模板ID: {}, 请求: {}", id, request);
         request.setTemplateId(id);
         Integer result = couponService.issueCoupon(request);

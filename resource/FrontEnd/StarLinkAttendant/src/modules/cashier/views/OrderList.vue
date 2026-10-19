@@ -3,7 +3,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search, RefreshRight, View, RefreshLeft } from '@element-plus/icons-vue'
 import { getOrderList, getOrderDetail, refundOrder } from '../api'
-import { ORDER_STATUS_MAP, ORDER_TYPE_MAP } from '@/common/constants'
+import { ORDER_STATUS_MAP, ORDER_TYPE_MAP, PAYMENT_METHOD_MAP } from '@/common/constants'
 import { formatMoney } from '@/common/utils/money'
 import { formatDate } from '@/common/utils/date'
 import type { OrderItem, OrderDetail } from '../types'
@@ -18,6 +18,7 @@ const refundDialogVisible = ref(false)
 const currentOrderId = ref<number>(0)
 const refundAmount = ref(0)
 const refundReason = ref('')
+const originalPaymentMethod = ref<number | null>(null)
 const activeTab = ref('all')
 const refunding = ref(false)
 
@@ -94,9 +95,11 @@ const maxRefundable = ref(0)
 const handleRefund = async (row: OrderItem) => {
   currentOrderId.value = row.id
   refundReason.value = ''
+  originalPaymentMethod.value = null
   try {
     const res = await getOrderDetail(row.id)
     const detail = res.data
+    originalPaymentMethod.value = detail.payment?.paymentMethod ?? null
     const paid = Number(detail.paidAmount) || 0
     const alreadyRefunded = (detail.refunds || [])
       .filter((r: any) => r.status !== 3) // exclude rejected
@@ -111,6 +114,10 @@ const handleRefund = async (row: OrderItem) => {
 }
 
 const confirmRefund = async () => {
+  if (originalPaymentMethod.value !== 1 && originalPaymentMethod.value !== 4) {
+    ElMessage.warning('该支付方式暂不支持自动退款')
+    return
+  }
   if (refundAmount.value <= 0) { ElMessage.warning('退款金额必须大于0'); return }
   if (refundAmount.value > maxRefundable.value) { ElMessage.warning(`退款金额不能超过最大可退金额 ¥${maxRefundable.value.toFixed(2)}`); return }
   if (refunding.value) return
@@ -321,6 +328,9 @@ onMounted(() => { fetchData() })
     <!-- 退款弹窗 -->
     <el-dialog v-model="refundDialogVisible" title="订单退款" width="420px" :close-on-click-modal="false">
       <el-form label-width="80px">
+        <el-form-item label="退款方式">
+          {{ originalPaymentMethod ? PAYMENT_METHOD_MAP[originalPaymentMethod] : '未知' }}（退回原支付方式）
+        </el-form-item>
         <el-form-item label="退款金额">
           <el-input-number v-model="refundAmount" :min="0.01" :max="maxRefundable" :precision="2" style="width: 100%" />
           <div style="font-size: 12px; color: #94a3b8; margin-top: 4px">最大可退金额：¥{{ maxRefundable.toFixed(2) }}</div>

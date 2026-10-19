@@ -11,3 +11,5 @@
 # 生产/开发环境仍然必须通过环境变量 JWT_SECRET 提供各自的真实密钥。
 jwt:
   secret: starlink-attendant-test-only-secret-4f8c1a6e2b9d7f30a5c8e1b4
+privacy:
+  id-card-hmac-key: starlink-id-card-test-only-key-7d2f41c8e5a09b6c

@@ -46,7 +46,8 @@ public class SecurityConfig {
                         .requestMatchers("/api/member/login", "/api/member/register").permitAll()
                         // AI 助手：允许匿名访问；登录后前端会附带用户信息，由 AI 模块注入提示词
                         .requestMatchers("/api/ai/**").permitAll()
-                        .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator", "/actuator/**").hasRole("super_admin")
                         .requestMatchers("/uploads/**").permitAll()
 
                         // ---------- 会员自助白名单（会员或员工；归属由 Service 校验） ----------
