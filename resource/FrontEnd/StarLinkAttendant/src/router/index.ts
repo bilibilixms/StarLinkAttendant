@@ -105,6 +105,18 @@ const router = createRouter({
           meta: { title: '收银管理', icon: 'receipt' },
         },
         {
+          path: 'cashier/bills',
+          name: 'cashier-bills',
+          component: () => import('@/modules/cashier/views/BillLedger.vue'),
+          meta: { title: '账单管理', icon: 'file-text', group: '收银管理' },
+        },
+        {
+          path: 'cashier/orders',
+          name: 'cashier-orders',
+          component: () => import('@/modules/cashier/views/OrderList.vue'),
+          meta: { title: '收银订单', icon: 'receipt', group: '收银管理' },
+        },
+        {
           path: 'product',
           name: 'product',
           component: () => import('@/modules/product/views/ProductList.vue'),

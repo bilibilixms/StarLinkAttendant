@@ -125,10 +125,24 @@ const handleMenuSelect = (index: string) => {
           </el-menu-item>
         </el-sub-menu>
 
-        <el-menu-item index="/cashier">
-          <el-icon><Goods /></el-icon>
-          <template #title>收银管理</template>
-        </el-menu-item>
+        <el-sub-menu index="cashier-group">
+          <template #title>
+            <el-icon><Goods /></el-icon>
+            <span>收银管理</span>
+          </template>
+          <el-menu-item index="/cashier">
+            <el-icon><Goods /></el-icon>
+            <template #title>商品收银</template>
+          </el-menu-item>
+          <el-menu-item index="/cashier/bills">
+            <el-icon><Document /></el-icon>
+            <template #title>账单管理</template>
+          </el-menu-item>
+          <el-menu-item index="/cashier/orders">
+            <el-icon><ShoppingCart /></el-icon>
+            <template #title>收银订单</template>
+          </el-menu-item>
+        </el-sub-menu>
 
         <el-menu-item index="/product">
           <el-icon><ShoppingCart /></el-icon>
