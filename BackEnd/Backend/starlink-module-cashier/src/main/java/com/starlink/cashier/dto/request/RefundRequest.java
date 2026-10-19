@@ -17,6 +17,6 @@ public class RefundRequest {
     /** 退款原因 */
     private String refundReason;
 
-    /** 退款方式：1-现金退 2-退余额 */
+    /** 可省略；服务端始终按原支付方式退款，传入不一致时拒绝。 */
     private Integer refundMethod;
 }

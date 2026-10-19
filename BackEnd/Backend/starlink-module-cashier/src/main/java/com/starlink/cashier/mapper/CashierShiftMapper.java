@@ -13,6 +13,10 @@ public interface CashierShiftMapper extends BaseMapper<CashierShift> {
 
     CashierShift selectActiveShift(@Param("employeeId") Long employeeId);
 
+    CashierShift selectActiveShiftForUpdate(@Param("employeeId") Long employeeId);
+
+    Long lockEmployeeForShift(@Param("employeeId") Long employeeId);
+
     IPage<ShiftResponse> selectShiftPage(Page<ShiftResponse> page,
                                          @Param("employeeId") Long employeeId,
                                          @Param("status") Integer status);

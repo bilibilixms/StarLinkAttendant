@@ -32,6 +32,10 @@ public class PaymentRecord extends BaseEntity {
     @TableField("total_amount")
     private BigDecimal totalAmount;
 
+    /** 顾客实际交付的现金；订单收入仍以 totalAmount 为准。 */
+    @TableField("cash_received")
+    private BigDecimal cashReceived;
+
     @TableField("refund_amount")
     private BigDecimal refundAmount;
 

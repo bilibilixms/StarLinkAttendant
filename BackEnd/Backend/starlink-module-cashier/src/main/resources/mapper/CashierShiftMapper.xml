@@ -12,6 +12,16 @@
         LIMIT 1
     </select>
 
+    <select id="selectActiveShiftForUpdate" resultType="com.starlink.cashier.entity.CashierShift">
+        SELECT * FROM cashier_shift
+        WHERE employee_id = #{employeeId} AND status = 0 AND deleted_at IS NULL
+        LIMIT 1 FOR UPDATE
+    </select>
+
+    <select id="lockEmployeeForShift" resultType="java.lang.Long">
+        SELECT id FROM employee WHERE id = #{employeeId} AND deleted_at IS NULL FOR UPDATE
+    </select>
+
     <select id="selectShiftPage" resultType="com.starlink.cashier.dto.response.ShiftResponse">
         SELECT
             s.id,

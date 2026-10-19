@@ -53,6 +53,7 @@ export interface PaymentRecordItem {
   paymentMethodLabel: string
   tradeNo: string | null
   totalAmount: number
+  cashReceived: number | null
   refundAmount: number
   paymentStatus: number
   paymentStatusLabel: string
