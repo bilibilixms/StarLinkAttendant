@@ -1,13 +1,13 @@
-package com.starlink;
+package com.starlinktest;
 
 import com.starlink.system.config.JwtProperties;
 import com.starlink.system.security.JwtSecretValidator;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.StandardEnvironment;
 
@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class JwtSecretStartupTest {
 
     /** 只装配校验所需的两个 bean，避免引入数据源等无关依赖。 */
-    @Configuration
+    @TestConfiguration
     @EnableConfigurationProperties(JwtProperties.class)
     static class ValidatorOnlyConfig {
         @Bean

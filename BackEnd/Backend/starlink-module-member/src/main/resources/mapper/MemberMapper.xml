@@ -95,4 +95,9 @@
         SELECT * FROM member WHERE id = #{id} AND deleted_at IS NULL FOR UPDATE
     </select>
 
+    <update id="incrementTotalRecharge">
+        UPDATE member SET total_recharge = total_recharge + #{amount}, version = version + 1
+        WHERE id = #{id} AND deleted_at IS NULL
+    </update>
+
 </mapper>
