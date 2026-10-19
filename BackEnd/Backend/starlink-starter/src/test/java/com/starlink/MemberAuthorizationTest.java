@@ -199,6 +199,26 @@ class MemberAuthorizationTest {
         }
     }
 
+    @Test
+    @DisplayName("AI 与运行指标接口按登录身份和角色限制访问")
+    void aiAndActuatorAccessBoundaries() {
+        assertEquals(401, status(HttpMethod.GET, "/api/ai/config", null),
+                "匿名用户不能读取 AI 配置");
+        assertEquals(200, status(HttpMethod.GET, "/api/ai/config", tokenA),
+                "已登录会员可以使用 AI 助手");
+        assertEquals(403, status(HttpMethod.GET, "/api/ai/minerU/files", tokenA),
+                "会员不能维护 AI 知识库");
+
+        assertEquals(200, status(HttpMethod.GET, "/actuator/health", null),
+                "健康检查应保持公开");
+        assertEquals(401, status(HttpMethod.GET, "/actuator/metrics", null),
+                "匿名用户不能读取运行指标");
+        assertEquals(403, status(HttpMethod.GET, "/actuator/metrics", tokenA),
+                "会员不能读取运行指标");
+        assertEquals(200, status(HttpMethod.GET, "/actuator/metrics", tokenAdmin),
+                "超级管理员可以读取运行指标");
+    }
+
     /* ==================== TEST-P0-4-02/03/04 ==================== */
 
     @Test
