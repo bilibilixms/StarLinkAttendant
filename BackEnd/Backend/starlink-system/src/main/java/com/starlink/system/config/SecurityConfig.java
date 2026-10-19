@@ -48,11 +48,13 @@ public class SecurityConfig {
                         .requestMatchers("/api/ai/minerU/**")
                         .hasAnyRole("super_admin", "store_manager")
                         .requestMatchers("/api/ai/**").authenticated()
-                        .requestMatchers("/actuator/**").permitAll()
+                        .requestMatchers("/actuator/health", "/actuator/health/**").permitAll()
+                        .requestMatchers("/actuator", "/actuator/**").hasRole("super_admin")
                         .requestMatchers("/uploads/**").permitAll()
 
                         // ---------- 会员自助白名单（会员或员工；归属由 Service 校验） ----------
-                        .requestMatchers(HttpMethod.POST, "/api/member/recharge").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/member/recharge")
+                        .hasAnyRole("super_admin", "store_manager", "cashier")
                         // 充值试算（只读预演，不产生写入）：会员需在提交前看到活动赠送与到账金额。
                         // 归属校验同样在 Service 层完成（assertMemberLedgerAccess）。
                         .requestMatchers(HttpMethod.GET, "/api/member/recharge/preview").authenticated()

@@ -50,7 +50,8 @@
             password_hash = #{passwordHash},
             real_name = #{realName},
             gender = #{gender},
-            id_card = #{idCard},
+            id_card = NULL,
+            id_card_hash = #{idCardHash},
             birthday = #{birthday},
             level_id = #{levelId},
             total_points = 0,
@@ -93,5 +94,10 @@
     <select id="selectByIdForUpdate" resultType="com.starlink.member.entity.Member">
         SELECT * FROM member WHERE id = #{id} AND deleted_at IS NULL FOR UPDATE
     </select>
+
+    <update id="incrementTotalRecharge">
+        UPDATE member SET total_recharge = total_recharge + #{amount}, version = version + 1
+        WHERE id = #{id} AND deleted_at IS NULL
+    </update>
 
 </mapper>

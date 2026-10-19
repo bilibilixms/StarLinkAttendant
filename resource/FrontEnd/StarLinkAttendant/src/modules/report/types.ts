@@ -94,6 +94,7 @@ export interface FinanceData {
   totalIncome: number
   cashIncome: number
   balanceIncome: number
+  onlineIncome: number
   refundAmount: number
   netIncome: number
   purchaseExpense: number

@@ -29,9 +29,10 @@
 | :--- | :--- | :--- |
 | 后端 | Java、Spring Boot、MyBatis-Plus、Spring Security + JWT、Maven 多模块 | **JDK 17（必须）**、Maven 3.8+ |
 | 数据库 | MySQL（InnoDB / utf8mb4） | **8.0+** |
+| 令牌撤销 | Redis | 服务可连接 |
 | 前端 | Vue 3 + TypeScript + Vite + Element Plus + Pinia + Axios | **Node.js 22.18+** |
 
-不需要安装 Redis，不需要外网，所有第三方服务均为模拟实现。
+后端需要本地 MySQL 和 Redis；第三方支付、短信等业务集成仍为模拟实现。
 
 ---
 
@@ -52,7 +53,7 @@ StarLinkAttendant/
 ├── resource/
 │   ├── FrontEnd/StarLinkAttendant/       # 前端工程
 │   └── sql/
-│       ├── DataBase.sql                  # 建库建表脚本（40 张表，可重复执行）
+│       ├── DataBase.sql                  # 全新建库脚本（46 张表，会删除现有表）
 │       └── Insert.sql                    # 演示种子数据（账号、近两天业务数据）
 └── doc/                                  # 需求与设计文档
 ```
@@ -68,6 +69,7 @@ StarLinkAttendant/
 | JDK | **17（必须是 17，高版本如 JDK 21/25 可能无法正常运行）** | `java -version` |
 | Maven | 3.8+ | `mvn -v` |
 | MySQL | 8.0+，服务已启动 | `mysql --version` |
+| Redis | 服务已启动，默认 127.0.0.1:6379，数据库 9 | `redis-cli ping` |
 | Node.js | 22.18+（Vite 8 要求） | `node -v` |
 
 ### 第 1 步：初始化数据库
@@ -75,7 +77,7 @@ StarLinkAttendant/
 打开命令行，依次执行两条脚本（把 `-p` 后密码换成你本机 MySQL 的 root 密码）：
 
 ```bash
-# 1) 建库建表（脚本会自动创建 starlink_attendant 库，共 40 张表）
+# 1) 建库建表（脚本会自动创建 starlink_attendant 库，共 46 张表）
 mysql -uroot -p < resource/sql/DataBase.sql
 
 # 2) 导入演示数据（员工、会员、费率、机位、近两天会话/订单/充值等）
@@ -83,6 +85,9 @@ mysql -uroot -p starlink_attendant < resource/sql/Insert.sql
 ```
 
 也可以用 Navicat / DataGrip 等图形工具直接运行这两个 SQL 文件（先 DataBase.sql，后 Insert.sql）。
+**DataBase.sql 会删除全部现有业务表和数据，仅用于全新环境。**已有数据库升级请先备份，
+按需执行 `MemberGrowth.sql`、`ai_chat_history.sql` 等增量脚本；不要重新运行 DataBase.sql。
+新版 DataBase.sql 已包含成长值和 AI 历史表，全新环境无需再运行这两个增量脚本。
 
 ### 第 2 步：修改后端数据库密码（必改）
 
@@ -102,7 +107,9 @@ spring:
     password: 你的MySQL密码
 ```
 
-> 如果 MySQL 不在本机或端口不是 3306，同步修改 `url` 中的地址和端口。
+可用 `MYSQL_HOST`、`MYSQL_PORT`、`MYSQL_DB`、`MYSQL_USERNAME`、`MYSQL_PASSWORD`
+环境变量覆盖数据库连接；Redis 可用 `REDIS_HOST`、`REDIS_PORT`、`REDIS_DATABASE`、
+`REDIS_PASSWORD` 覆盖默认值。启动前请确认 Redis 可连接。
 
 ### 第 3 步：设置 JWT_SECRET（必设）
 
@@ -150,12 +157,18 @@ export JWT_SECRET='<your-random-secret>'
 > 环境变量在 IDE 中启动时，需在运行配置（如 IntelliJ Run/Debug Configurations）的
 > Environment variables 里同样设置 `JWT_SECRET`。
 
+会员身份证号核验还需要单独设置 `ID_CARD_HMAC_KEY`（至少 32 字节的随机值），例如
+`export ID_CARD_HMAC_KEY="$(openssl rand -base64 48)"`。同一数据库必须长期使用同一密钥，
+否则历史身份证摘要无法核验。应用启动时会将旧版 `member.id_card` 明文逐条转为
+`id_card_hash` 摘要并清空明文字段；升级前请备份数据库，并在启动后确认明文字段已清空。
+
 ### 第 4 步：启动后端
 
 确保 `JAVA_HOME` 指向 **JDK 17**（这是最常见的启动失败原因），且已按第 3 步设置 `JWT_SECRET`，然后：
 
 ```bash
 cd BackEnd/Backend
+mvn -Dmaven.test.skip=true install
 mvn -pl starlink-starter spring-boot:run
 ```
 
@@ -163,6 +176,7 @@ mvn -pl starlink-starter spring-boot:run
 
 - 后端地址：http://localhost:8080
 - 健康检查：http://localhost:8080/actuator/health 返回 `UP`
+- 文件上传默认保存在本地 `./uploads`；如需 OSS，设置 `FILE_STORAGE=oss` 并配置阿里云凭据
 - 看到控制台输出会话计费定时任务日志（每分钟扫描进行中会话）即正常
 
 也可以直接用 IDEA 打开 `BackEnd/Backend`（Maven 工程），确认 Project SDK = 17，运行启动类：

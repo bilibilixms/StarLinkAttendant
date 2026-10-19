@@ -16,6 +16,7 @@ public class PaymentRecordResponse {
     private String paymentMethodLabel;
     private String tradeNo;
     private BigDecimal totalAmount;
+    private BigDecimal cashReceived;
     private BigDecimal refundAmount;
     private Integer paymentStatus;
     private String paymentStatusLabel;

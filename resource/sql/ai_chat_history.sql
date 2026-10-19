@@ -14,8 +14,7 @@ USE `starlink_attendant`;
 -- ------------------------------------------------------------
 -- 1. AI 会话表
 -- ------------------------------------------------------------
-DROP TABLE IF EXISTS `ai_chat_session`;
-CREATE TABLE `ai_chat_session` (
+CREATE TABLE IF NOT EXISTS `ai_chat_session` (
     `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
     `session_no`    VARCHAR(32)  NOT NULL COMMENT '对外会话号（唯一，前端/接口用）',
     `user_type`     VARCHAR(10)  NOT NULL DEFAULT 'user' COMMENT '使用端：user=用户端，admin=管理端',
@@ -35,8 +34,7 @@ CREATE TABLE `ai_chat_session` (
 -- ------------------------------------------------------------
 -- 2. AI 消息表
 -- ------------------------------------------------------------
-DROP TABLE IF EXISTS `ai_chat_message`;
-CREATE TABLE `ai_chat_message` (
+CREATE TABLE IF NOT EXISTS `ai_chat_message` (
     `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
     `session_id`    BIGINT       NOT NULL COMMENT '所属会话ID（ai_chat_session.id）',
     `role`          VARCHAR(10)  NOT NULL COMMENT '消息角色：user=用户提问，assistant=AI回答',

@@ -8,11 +8,15 @@ import com.starlink.cashier.dto.response.OrderResponse;
 import com.starlink.cashier.entity.Order;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Select;
 
 import java.util.List;
 
 @Mapper
 public interface OrderMapper extends BaseMapper<Order> {
+
+    @Select("SELECT * FROM orders WHERE id = #{id} AND deleted_at IS NULL FOR UPDATE")
+    Order selectByIdForUpdate(@Param("id") Long id);
 
     IPage<OrderResponse> selectOrderPage(Page<OrderResponse> page,
                                          @Param("orderNo") String orderNo,

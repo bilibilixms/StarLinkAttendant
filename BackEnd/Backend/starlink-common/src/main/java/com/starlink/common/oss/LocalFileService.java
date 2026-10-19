@@ -1,19 +1,21 @@
 package com.starlink.common.oss;
 
-import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.util.IdUtil;
+import com.starlink.common.exception.BusinessException;
+import com.starlink.common.result.ErrorCode;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
+import java.nio.file.StandardOpenOption;
 
 /**
  * 本地文件存储实现。
@@ -44,17 +46,27 @@ public class LocalFileService implements FileService {
     public String upload(InputStream inputStream, String fileName, String bizType) {
         try {
             // 生成唯一文件名
-            String extension = FileUtil.extName(fileName);
-            String storedName = IdUtil.fastSimpleUUID() + (extension != null ? "." + extension : "");
+            String safeBizType = FileUploadPolicy.safeBizType(bizType);
+            String extension = FileUploadPolicy.safeExtension(fileName);
+            String storedName = IdUtil.fastSimpleUUID() + "." + extension;
 
-            // 构建存储路径：basePath/bizType/yyyyMM/storedName
-            Path dirPath = Paths.get(basePath, bizType);
+            // 构建存储路径：basePath/bizType/storedName
+            Path root = Paths.get(basePath).toAbsolutePath().normalize();
+            Files.createDirectories(root);
+            Path realRoot = root.toRealPath();
+            Path dirPath = realRoot.resolve(safeBizType);
             Files.createDirectories(dirPath);
+            if (!dirPath.toRealPath().startsWith(realRoot)) {
+                throw new BusinessException(ErrorCode.PARAM_ERROR.getCode(), "文件目录不合法");
+            }
 
             Path filePath = dirPath.resolve(storedName);
-            Files.copy(inputStream, filePath, StandardCopyOption.REPLACE_EXISTING);
+            try (OutputStream output = Files.newOutputStream(filePath, StandardOpenOption.CREATE_NEW,
+                    StandardOpenOption.WRITE)) {
+                inputStream.transferTo(output);
+            }
 
-            String fileUrl = baseUrl + "/" + bizType + "/" + storedName;
+            String fileUrl = baseUrl + "/" + safeBizType + "/" + storedName;
             log.info("文件上传成功: {} -> {}", fileName, fileUrl);
             return fileUrl;
 
@@ -67,11 +79,18 @@ public class LocalFileService implements FileService {
     @Override
     public boolean delete(String fileUrl) {
         try {
-            String relativePath = fileUrl.replace(baseUrl + "/", "");
-            Path filePath = Paths.get(basePath, relativePath);
-            File file = filePath.toFile();
-            if (file.exists()) {
-                boolean deleted = file.delete();
+            String prefix = baseUrl + "/";
+            if (fileUrl == null || !fileUrl.startsWith(prefix)) {
+                return false;
+            }
+            Path root = Paths.get(basePath).toRealPath();
+            Path filePath = root.resolve(fileUrl.substring(prefix.length())).normalize();
+            if (!filePath.startsWith(root) || !Files.isRegularFile(filePath, LinkOption.NOFOLLOW_LINKS)
+                    || !filePath.toRealPath().startsWith(root)) {
+                return false;
+            }
+            if (Files.exists(filePath)) {
+                boolean deleted = Files.deleteIfExists(filePath);
                 log.info("文件删除: {} -> {}", fileUrl, deleted);
                 return deleted;
             }

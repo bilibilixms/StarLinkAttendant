@@ -27,20 +27,26 @@ public interface ReportMapper {
     int selectOnlineCount();
 
     /** 今日订单数 */
-    @Select("SELECT COUNT(*) FROM orders WHERE DATE(paid_at) = #{date} AND status = 1 AND deleted_at IS NULL")
+    @Select("SELECT COUNT(*) FROM orders WHERE DATE(paid_at) = #{date} AND status IN (1, 2, 3) AND deleted_at IS NULL")
     int selectTodayOrderCount(@Param("date") LocalDate date);
 
     /** 今日营收 */
-    @Select("SELECT COALESCE(SUM(paid_amount), 0) FROM orders WHERE DATE(paid_at) = #{date} AND status = 1 AND deleted_at IS NULL")
+    @Select("SELECT COALESCE(SUM(o.paid_amount - COALESCE((SELECT SUM(r.refund_amount) FROM refund_record r " +
+            "WHERE r.order_id = o.id AND r.status = 2 AND r.deleted_at IS NULL), 0)), 0) " +
+            "FROM orders o WHERE DATE(o.paid_at) = #{date} AND o.status IN (1, 2, 3) AND o.deleted_at IS NULL")
     java.math.BigDecimal selectTodayRevenue(@Param("date") LocalDate date);
 
     /** 客单价（今日平均每单金额） */
-    @Select("SELECT COALESCE(AVG(paid_amount), 0) FROM orders WHERE DATE(paid_at) = #{date} AND status = 1 AND deleted_at IS NULL")
+    @Select("SELECT COALESCE(AVG(o.paid_amount - COALESCE((SELECT SUM(r.refund_amount) FROM refund_record r " +
+            "WHERE r.order_id = o.id AND r.status = 2 AND r.deleted_at IS NULL), 0)), 0) " +
+            "FROM orders o WHERE DATE(o.paid_at) = #{date} AND o.status IN (1, 2, 3) AND o.deleted_at IS NULL")
     java.math.BigDecimal selectAvgOrderAmount(@Param("date") LocalDate date);
 
-    /** 上机率（使用中+空闲机位数 / 总启用机位数） */
-    @Select("SELECT COALESCE(SUM(CASE WHEN status IN (0, 1) THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*), 0), 0) " +
-            "FROM computer WHERE is_active = 1 AND deleted_at IS NULL")
+    /** 上机率（有活跃会话的机位 / 总启用机位数） */
+    @Select("SELECT COALESCE(COUNT(DISTINCT CASE WHEN s.id IS NOT NULL THEN c.id END) * 100.0 " +
+            "/ NULLIF(COUNT(DISTINCT c.id), 0), 0) FROM computer c " +
+            "LEFT JOIN session s ON s.computer_id = c.id AND s.status IN (0, 1) AND s.deleted_at IS NULL " +
+            "WHERE c.is_active = 1 AND c.deleted_at IS NULL")
     java.math.BigDecimal selectOccupancyRate();
 
     // ==================== REP-02 营收分析 ====================
@@ -60,15 +66,20 @@ public interface ReportMapper {
     List<MonthlyRevenueDTO> selectMonthlyRevenue(@Param("start") LocalDate start, @Param("end") LocalDate end);
 
     /** 按日期从 orders 表按类型统计营收（兜底用） */
-    @Select("SELECT order_type AS orderType, COALESCE(SUM(paid_amount), 0) AS amount " +
-            "FROM orders WHERE DATE(paid_at) = #{date} AND status = 1 AND deleted_at IS NULL " +
-            "GROUP BY order_type")
+    @Select("SELECT o.order_type AS orderType, COALESCE(SUM(o.paid_amount - COALESCE((" +
+            "SELECT SUM(r.refund_amount) FROM refund_record r WHERE r.order_id = o.id " +
+            "AND r.status = 2 AND r.deleted_at IS NULL), 0)), 0) AS amount " +
+            "FROM orders o WHERE DATE(o.paid_at) = #{date} AND o.status IN (1, 2, 3) " +
+            "AND o.deleted_at IS NULL GROUP BY o.order_type")
     List<Map<String, Object>> selectRevenueByTypeForDate(@Param("date") LocalDate date);
 
     /** 按订单类型统计营收 */
-    @Select("SELECT order_type AS type, COALESCE(SUM(paid_amount), 0) AS amount, COUNT(*) AS orderCount " +
-            "FROM orders WHERE paid_at BETWEEN #{start} AND #{end} AND status = 1 AND deleted_at IS NULL " +
-            "GROUP BY order_type ORDER BY order_type")
+    @Select("SELECT o.order_type AS type, COALESCE(SUM(o.paid_amount - COALESCE((" +
+            "SELECT SUM(r.refund_amount) FROM refund_record r WHERE r.order_id = o.id " +
+            "AND r.status = 2 AND r.deleted_at IS NULL), 0)), 0) AS amount, COUNT(*) AS orderCount " +
+            "FROM orders o WHERE o.paid_at BETWEEN #{start} AND #{end} " +
+            "AND o.status IN (1, 2, 3) AND o.deleted_at IS NULL " +
+            "GROUP BY o.order_type ORDER BY o.order_type")
     List<RevenueTypeDTO> selectRevenueByType(@Param("start") String start, @Param("end") String end);
 
     /** 同比月度营收（去年同期） */
@@ -111,21 +122,29 @@ public interface ReportMapper {
 
     /** 商品销量排行 */
     @Select("SELECT oi.product_name AS productName, SUM(oi.quantity) AS totalQuantity, " +
-            "SUM(oi.subtotal) AS totalAmount, COUNT(DISTINCT oi.order_id) AS orderCount " +
+            "SUM((oi.subtotal - oi.discount) * GREATEST(o.paid_amount - COALESCE(r.refunded, 0), 0) " +
+            "/ NULLIF(o.paid_amount, 0)) AS totalAmount, COUNT(DISTINCT oi.order_id) AS orderCount " +
             "FROM order_item oi JOIN orders o ON oi.order_id = o.id " +
-            "WHERE oi.item_type = 1 AND oi.deleted_at IS NULL AND o.deleted_at IS NULL " +
+            "LEFT JOIN (SELECT order_id, SUM(refund_amount) AS refunded FROM refund_record " +
+            "WHERE status = 2 AND deleted_at IS NULL GROUP BY order_id) r ON r.order_id = o.id " +
+            "WHERE oi.item_type = 1 AND oi.deleted_at IS NULL AND o.deleted_at IS NULL AND o.status IN (1, 2) " +
             "AND o.paid_at BETWEEN #{start} AND #{end} " +
             "GROUP BY oi.product_name ORDER BY totalAmount DESC LIMIT #{limit}")
     List<ProductRankingDTO> selectProductRanking(@Param("start") String start, @Param("end") String end, @Param("limit") int limit);
 
     /** 商品利润排行（关联 product 表获取成本价） */
     @Select("SELECT oi.product_name AS productName, SUM(oi.quantity) AS totalQuantity, " +
-            "SUM(oi.subtotal) AS totalAmount, SUM((oi.unit_price - COALESCE(p.cost_price, 0)) * oi.quantity) AS totalProfit, " +
+            "SUM((oi.subtotal - oi.discount) * GREATEST(o.paid_amount - COALESCE(r.refunded, 0), 0) " +
+            "/ NULLIF(o.paid_amount, 0)) AS totalAmount, " +
+            "SUM(((oi.unit_price - COALESCE(p.cost_price, 0)) * oi.quantity - oi.discount) " +
+            "* GREATEST(o.paid_amount - COALESCE(r.refunded, 0), 0) / NULLIF(o.paid_amount, 0)) AS totalProfit, " +
             "COUNT(DISTINCT oi.order_id) AS orderCount " +
             "FROM order_item oi " +
             "JOIN orders o ON oi.order_id = o.id " +
+            "LEFT JOIN (SELECT order_id, SUM(refund_amount) AS refunded FROM refund_record " +
+            "WHERE status = 2 AND deleted_at IS NULL GROUP BY order_id) r ON r.order_id = o.id " +
             "LEFT JOIN product p ON oi.product_id = p.id " +
-            "WHERE oi.item_type = 1 AND oi.deleted_at IS NULL AND o.deleted_at IS NULL " +
+            "WHERE oi.item_type = 1 AND oi.deleted_at IS NULL AND o.deleted_at IS NULL AND o.status IN (1, 2) " +
             "AND o.paid_at BETWEEN #{start} AND #{end} " +
             "GROUP BY oi.product_name ORDER BY totalProfit DESC LIMIT #{limit}")
     List<ProfitRankingDTO> selectProfitRanking(@Param("start") String start, @Param("end") String end, @Param("limit") int limit);
@@ -140,7 +159,8 @@ public interface ReportMapper {
 
     /** 活跃会员统计（有消费的会员数） */
     @Select("SELECT DATE(o.paid_at) AS date, COUNT(DISTINCT o.member_id) AS activeCount " +
-            "FROM orders o WHERE o.paid_at BETWEEN #{start} AND #{end} AND o.member_id IS NOT NULL AND o.deleted_at IS NULL " +
+            "FROM orders o WHERE o.paid_at BETWEEN #{start} AND #{end} AND o.member_id IS NOT NULL " +
+            "AND o.status IN (1, 2) AND o.deleted_at IS NULL " +
             "GROUP BY DATE(o.paid_at) ORDER BY date")
     List<MemberTrendDTO> selectActiveMembers(@Param("start") String start, @Param("end") String end);
 
@@ -156,13 +176,15 @@ public interface ReportMapper {
     /** 复购会员数（周期内 >= 2 次消费的会员） */
     @Select("SELECT COUNT(*) FROM (" +
             "SELECT o.member_id FROM orders o " +
-            "WHERE o.paid_at BETWEEN #{start} AND #{end} AND o.member_id IS NOT NULL AND o.status = 1 AND o.deleted_at IS NULL " +
+            "WHERE o.paid_at BETWEEN #{start} AND #{end} AND o.member_id IS NOT NULL " +
+            "AND o.status IN (1, 2) AND o.deleted_at IS NULL " +
             "GROUP BY o.member_id HAVING COUNT(*) >= 2) t")
     int selectRepurchaseMembers(@Param("start") String start, @Param("end") String end);
 
     /** 总消费会员数 */
     @Select("SELECT COUNT(DISTINCT member_id) FROM orders " +
-            "WHERE paid_at BETWEEN #{start} AND #{end} AND member_id IS NOT NULL AND status = 1 AND deleted_at IS NULL")
+            "WHERE paid_at BETWEEN #{start} AND #{end} AND member_id IS NOT NULL " +
+            "AND status IN (1, 2) AND deleted_at IS NULL")
     int selectTotalActiveMembersRange(@Param("start") String start, @Param("end") String end);
 
     /** 充值行为趋势（按日） */
@@ -183,14 +205,17 @@ public interface ReportMapper {
 
     /** 营业收入汇总（按支付方式，使用 payment_record） */
     @Select("SELECT COALESCE(SUM(CASE WHEN payment_method = 1 THEN total_amount ELSE 0 END), 0) AS cashIncome, " +
-            "COALESCE(SUM(CASE WHEN payment_method = 2 THEN total_amount ELSE 0 END), 0) AS balanceIncome, " +
+            "COALESCE(SUM(CASE WHEN payment_method = 4 THEN total_amount ELSE 0 END), 0) AS balanceIncome, " +
+            "COALESCE(SUM(CASE WHEN payment_method IN (2, 3) THEN total_amount ELSE 0 END), 0) AS onlineIncome, " +
             "COALESCE(SUM(total_amount), 0) AS totalIncome " +
-            "FROM payment_record WHERE payment_status = 1 AND paid_at BETWEEN #{start} AND #{end} AND deleted_at IS NULL")
+            "FROM payment_record WHERE payment_status IN (1, 3) " +
+            "AND paid_at BETWEEN #{start} AND #{end} AND deleted_at IS NULL")
     Map<String, Object> selectIncomeBreakdown(@Param("start") String start, @Param("end") String end);
 
     /** 退款总额 */
     @Select("SELECT COALESCE(SUM(refund_amount), 0) FROM refund_record " +
-            "WHERE status = 2 AND created_at BETWEEN #{start} AND #{end} AND deleted_at IS NULL")
+            "WHERE status = 2 AND COALESCE(audit_at, created_at) BETWEEN #{start} AND #{end} " +
+            "AND deleted_at IS NULL")
     java.math.BigDecimal selectTotalRefund(@Param("start") String start, @Param("end") String end);
 
     /** 采购支出 */
@@ -214,12 +239,14 @@ public interface ReportMapper {
 
     /** 会员充值流入 */
     @Select("SELECT COALESCE(SUM(recharge_amount), 0) FROM member_recharge " +
-            "WHERE status = 1 AND paid_at BETWEEN #{start} AND #{end} AND deleted_at IS NULL")
+            "WHERE status = 1 AND payment_method = 1 AND paid_at BETWEEN #{start} AND #{end} " +
+            "AND deleted_at IS NULL")
     java.math.BigDecimal selectRechargeInflow(@Param("start") String start, @Param("end") String end);
 
     /** 现金支出（退款） */
     @Select("SELECT COALESCE(SUM(refund_amount), 0) FROM refund_record " +
-            "WHERE refund_method = 1 AND status = 2 AND created_at BETWEEN #{start} AND #{end} AND deleted_at IS NULL")
+            "WHERE refund_method = 1 AND status = 2 " +
+            "AND COALESCE(audit_at, created_at) BETWEEN #{start} AND #{end} AND deleted_at IS NULL")
     java.math.BigDecimal selectCashOutflow(@Param("start") String start, @Param("end") String end);
 
     /** 日结表营收汇总（利润表用） */
@@ -227,7 +254,9 @@ public interface ReportMapper {
             "COALESCE(SUM(online_revenue), 0) AS onlineRevenue, " +
             "COALESCE(SUM(product_revenue), 0) AS productRevenue, " +
             "COALESCE(SUM(recharge_revenue), 0) AS rechargeRevenue, " +
-            "COALESCE(SUM(total_refund), 0) AS totalRefund " +
+            "COALESCE(SUM(total_refund), 0) AS totalRefund, " +
+            "COALESCE(SUM(cash_amount), 0) AS cashAmount, " +
+            "COALESCE(SUM(balance_amount), 0) AS balanceAmount " +
             "FROM daily_settlement WHERE settle_date BETWEEN #{start} AND #{end} AND deleted_at IS NULL")
     Map<String, Object> selectDailySettlementSummary(@Param("start") LocalDate start, @Param("end") LocalDate end);
 }
